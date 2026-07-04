@@ -1837,6 +1837,7 @@ open class WKWebViewController: UIViewController, WKScriptMessageHandler {
 
     private func applyNavigationVisibility() {
         navigationController?.setNavigationBarHidden(blankNavigationTab, animated: false)
+        // Always hide toolbar since we never want it.
         navigationController?.setToolbarHidden(true, animated: false)
     }
 
