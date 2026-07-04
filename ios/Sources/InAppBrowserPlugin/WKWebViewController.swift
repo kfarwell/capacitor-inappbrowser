@@ -1835,6 +1835,11 @@ open class WKWebViewController: UIViewController, WKScriptMessageHandler {
         return self.capableWebView
     }
 
+    private func applyNavigationVisibility() {
+        navigationController?.setNavigationBarHidden(blankNavigationTab, animated: false)
+        navigationController?.setToolbarHidden(true, animated: false)
+    }
+
     override open func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         if !self.viewWasPresented {
@@ -1847,8 +1852,7 @@ open class WKWebViewController: UIViewController, WKScriptMessageHandler {
         }
 
         // Reapply presentation state after hide/show re-presents the same controller.
-        navigationController?.setNavigationBarHidden(blankNavigationTab, animated: false)
-        navigationController?.setToolbarHidden(true, animated: false)
+        applyNavigationVisibility()
 
         // Force update button appearances
         updateButtonTintColors()
@@ -2297,11 +2301,7 @@ fileprivate extension WKWebViewController {
     }
 
     func setUpState() {
-        navigationController?.setNavigationBarHidden(blankNavigationTab, animated: false)
-
-        // Always hide toolbar since we never want it
-        navigationController?.setToolbarHidden(true, animated: false)
-
+        applyNavigationVisibility()
         // Set tint colors but don't override specific colors
         if tintColor == nil {
             // Use system appearance if no specific tint color is set
