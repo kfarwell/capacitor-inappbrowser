@@ -2218,6 +2218,12 @@ open class WKWebViewController: UIViewController, WKScriptMessageHandler {
         return self.capableWebView
     }
 
+    private func applyNavigationVisibility() {
+        navigationController?.setNavigationBarHidden(blankNavigationTab, animated: false)
+        // Always hide toolbar since we never want it.
+        navigationController?.setToolbarHidden(true, animated: false)
+    }
+
     override open func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         if !self.viewWasPresented {
@@ -2228,6 +2234,9 @@ open class WKWebViewController: UIViewController, WKScriptMessageHandler {
             // Apply custom dimensions if specified
             applyCustomDimensions()
         }
+
+        // Reapply presentation state after hide/show re-presents the same controller.
+        applyNavigationVisibility()
 
         // Force update button appearances
         updateButtonTintColors()
@@ -2676,11 +2685,7 @@ fileprivate extension WKWebViewController {
     }
 
     func setUpState() {
-        navigationController?.setNavigationBarHidden(blankNavigationTab, animated: false)
-
-        // Always hide toolbar since we never want it
-        navigationController?.setToolbarHidden(true, animated: false)
-
+        applyNavigationVisibility()
         // Set tint colors but don't override specific colors
         if tintColor == nil {
             // Use system appearance if no specific tint color is set
@@ -2700,7 +2705,10 @@ fileprivate extension WKWebViewController {
 
         navigationController?.navigationBar.tintColor = previousNavigationBarState.tintColor
 
-        navigationController?.setNavigationBarHidden(previousNavigationBarState.hidden, animated: true)
+        navigationController?.setNavigationBarHidden(
+            blankNavigationTab || previousNavigationBarState.hidden,
+            animated: true
+        )
     }
 
     func checkRequestCookies(_ request: URLRequest, cookies: [HTTPCookie]) -> Bool {
