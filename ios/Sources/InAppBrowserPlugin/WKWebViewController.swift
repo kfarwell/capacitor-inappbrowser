@@ -1846,6 +1846,10 @@ open class WKWebViewController: UIViewController, WKScriptMessageHandler {
             applyCustomDimensions()
         }
 
+        // Reapply presentation state after hide/show re-presents the same controller.
+        navigationController?.setNavigationBarHidden(blankNavigationTab, animated: false)
+        navigationController?.setToolbarHidden(true, animated: false)
+
         // Force update button appearances
         updateButtonTintColors()
 
@@ -2317,7 +2321,10 @@ fileprivate extension WKWebViewController {
 
         navigationController?.navigationBar.tintColor = previousNavigationBarState.tintColor
 
-        navigationController?.setNavigationBarHidden(previousNavigationBarState.hidden, animated: true)
+        navigationController?.setNavigationBarHidden(
+            blankNavigationTab || previousNavigationBarState.hidden,
+            animated: true
+        )
     }
 
     func checkRequestCookies(_ request: URLRequest, cookies: [HTTPCookie]) -> Bool {
