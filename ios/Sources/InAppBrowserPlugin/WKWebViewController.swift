@@ -415,6 +415,9 @@ open class WKWebViewController: UIViewController, WKScriptMessageHandler {
     var shareSubject: String?
     var didpageInit = false
     open var closeModal = false
+    open var closeAction = "close"
+    open var titleFontFamily: String?
+    open var titleIcon: UIImage?
     open var closeModalTitle = ""
     open var closeModalDescription = ""
     open var closeModalOk = ""
@@ -733,7 +736,6 @@ open class WKWebViewController: UIViewController, WKScriptMessageHandler {
         }
     }
 
-
     private func parseBlobBridgePayload(_ payload: Any) -> [String: Any]? {
         if let dictionary = payload as? [String: Any] {
             return dictionary
@@ -764,6 +766,7 @@ open class WKWebViewController: UIViewController, WKScriptMessageHandler {
         }
     }
 
+    @discardableResult
     private func abortBlobDownloadSession(sessionId: String, deleteFile: Bool) -> BlobDownloadSession? {
         guard let session = blobDownloadSessions.removeValue(forKey: sessionId) else {
             return nil
@@ -1333,8 +1336,52 @@ open class WKWebViewController: UIViewController, WKScriptMessageHandler {
 
                 // Force update UI if needed
                 self?.navigationController?.navigationBar.setNeedsLayout()
+
             }
         }
+    }
+
+    func updateTitleAppearance() {
+        guard titleIcon != nil || titleFontFamily != nil else {
+            navigationItem.titleView = nil
+            return
+        }
+
+        let currentTitle = navigationItem.title ?? title ?? webView?.url?.host ?? ""
+        let titleColor = navigationController?.navigationBar.titleTextAttributes?[.foregroundColor] as? UIColor
+            ?? tintColor
+            ?? navigationController?.navigationBar.tintColor
+            ?? .label
+        let fontSize = UIFont.preferredFont(forTextStyle: .headline).pointSize
+        let titleFont = titleFontFamily.flatMap { UIFont(name: $0, size: fontSize) }
+            ?? UIFont.systemFont(ofSize: fontSize, weight: .semibold)
+
+        let label = UILabel()
+        label.text = currentTitle
+        label.textColor = titleColor
+        label.font = titleFont
+        label.lineBreakMode = .byTruncatingTail
+        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+
+        let stackView = UIStackView()
+        stackView.axis = .horizontal
+        stackView.alignment = .center
+        stackView.spacing = 6
+
+        if let titleIcon {
+            let imageView = UIImageView(image: titleIcon.withRenderingMode(.alwaysTemplate))
+            imageView.tintColor = titleColor
+            imageView.contentMode = .scaleAspectFit
+            imageView.translatesAutoresizingMaskIntoConstraints = false
+            NSLayoutConstraint.activate([
+                imageView.widthAnchor.constraint(equalToConstant: 18),
+                imageView.heightAnchor.constraint(equalToConstant: 18)
+            ])
+            stackView.addArrangedSubview(imageView)
+        }
+
+        stackView.addArrangedSubview(label)
+        navigationItem.titleView = stackView
     }
 
     override open func viewDidLayoutSubviews() {
@@ -1387,6 +1434,7 @@ open class WKWebViewController: UIViewController, WKScriptMessageHandler {
                 navigationItem.rightBarButtonItems?.append(buttonItem)
             }
         }
+        updateTitleAppearance()
     }
 
     override open func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
@@ -2167,6 +2215,9 @@ open class WKWebViewController: UIViewController, WKScriptMessageHandler {
         self.ignoreUntrustedSSLError = parent.ignoreUntrustedSSLError
         self.enableGooglePaySupport = parent.enableGooglePaySupport
         self.preventDeeplink = parent.preventDeeplink
+        self.closeAction = parent.closeAction
+        self.titleFontFamily = parent.titleFontFamily
+        self.titleIcon = parent.titleIcon
         self.openBlankTargetInWebView = parent.openBlankTargetInWebView
         self.blankNavigationTab = false
         self.enabledSafeBottomMargin = parent.enabledSafeBottomMargin
@@ -2331,6 +2382,7 @@ open class WKWebViewController: UIViewController, WKScriptMessageHandler {
         case titleKeyPath?:
             if self.hasDynamicTitle {
                 self.navigationItem.title = webView?.url?.host
+                self.updateTitleAppearance()
             }
         case "URL":
             // Guard against notifications during cleanup when webView is being torn down
@@ -2990,6 +3042,10 @@ fileprivate extension WKWebViewController {
         }
         if canDismiss {
             let currentUrl = webView?.url?.absoluteString ?? ""
+            if closeAction == "hide" {
+                self.capBrowserPlugin?.handleWebViewDidHide(id: instanceId, url: currentUrl)
+                return
+            }
             cleanupWebView()
             self.capBrowserPlugin?.handleWebViewDidClose(id: instanceId, url: currentUrl)
             dismiss(animated: true, completion: nil)

@@ -48,6 +48,7 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
@@ -166,6 +167,11 @@ public class CapgoInAppBrowserPlugin extends Plugin implements WebViewDialog.Per
             public void closeEvent(String url) {
                 notifyListeners("closeEvent", new JSObject().put("id", webViewId).put("url", url));
                 unregisterWebView(webViewId);
+            }
+
+            @Override
+            public void hideEvent(String url) {
+                notifyListeners("hideEvent", new JSObject().put("id", webViewId).put("url", url));
             }
 
             @Override
@@ -1020,6 +1026,40 @@ public class CapgoInAppBrowserPlugin extends Plugin implements WebViewDialog.Per
         options.setToolbarColor(call.getString("toolbarColor", "#ffffff"));
         options.setBackgroundColor(call.getString("backgroundColor", "white"));
         options.setToolbarTextColor(call.getString("toolbarTextColor"));
+        String closeAction = call.getString("closeAction", "close").toLowerCase(Locale.ROOT);
+        if (!"close".equals(closeAction) && !"hide".equals(closeAction)) {
+            call.reject("closeAction must be 'close' or 'hide'");
+            return;
+        }
+        options.setCloseAction(closeAction);
+        options.setTitleFontFamily(call.getString("titleFontFamily"));
+        JSObject titleIconObj = call.getObject("titleIcon");
+        if (titleIconObj != null) {
+            JSObject androidTitleIconObj = titleIconObj.getJSObject("android");
+            if (androidTitleIconObj != null) {
+                try {
+                    String titleIconType = androidTitleIconObj.getString("iconType", "asset");
+                    String titleIconName = androidTitleIconObj.getString("icon", "");
+                    if ("vector".equals(titleIconType)) {
+                        int resourceId = getContext()
+                            .getResources()
+                            .getIdentifier(titleIconName, "drawable", getContext().getPackageName());
+                        if (resourceId == 0) {
+                            Log.e("InAppBrowser", "Title icon vector resource not found: " + titleIconName);
+                            call.reject("titleIcon validation failed: vector resource not found: " + titleIconName);
+                            return;
+                        }
+                    }
+                    options.setTitleIcon(
+                        Options.ButtonNearDone.generateFromAndroidObject(androidTitleIconObj, getContext().getAssets(), "titleIcon.android")
+                    );
+                } catch (Exception e) {
+                    Log.e("InAppBrowser", "Error setting titleIcon: " + e.getMessage(), e);
+                    call.reject("titleIcon validation failed: " + e.getMessage());
+                    return;
+                }
+            }
+        }
         options.setArrow(Boolean.TRUE.equals(call.getBoolean("showArrow", false)));
         options.setIgnoreUntrustedSSLError(Boolean.TRUE.equals(call.getBoolean("ignoreUntrustedSSLError", false)));
         options.setClientCertificatePrompt(resolveClientCertificatePrompt(call));

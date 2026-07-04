@@ -16,6 +16,8 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffColorFilter;
+import android.graphics.Typeface;
+import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
@@ -69,6 +71,7 @@ import androidx.activity.result.ActivityResult;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.coordinatorlayout.widget.CoordinatorLayout;
 import androidx.core.content.FileProvider;
+import androidx.core.content.res.ResourcesCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -344,6 +347,10 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
     private final Map<String, BlobDownloadSession> blobDownloadSessions = new ConcurrentHashMap<>();
     private final Map<String, ClientCertificateIdentity> clientCertificateIdentities = new ConcurrentHashMap<>();
     private int iconColor = Color.BLACK; // Default icon color
+    private Typeface cachedTitleTypeface;
+    private String cachedTitleFontFamily;
+    private Drawable cachedTitleIconDrawable;
+    private boolean cachedTitleIconResolved;
     private boolean isHiddenModeActive = false;
     private WindowManager.LayoutParams previousWindowAttributes;
     private Drawable previousWindowBackground;
@@ -3863,6 +3870,156 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
         } else {
             textView.setText("");
         }
+        applyTitleTextOptions(textView);
+    }
+
+    private void performToolbarCloseAction(String currentUrl) {
+        if (_options != null && "hide".equals(_options.getCloseAction())) {
+            setHidden(true);
+            if (_options.getCallbacks() != null) {
+                _options.getCallbacks().hideEvent(currentUrl);
+            }
+            return;
+        }
+
+        dismiss();
+        if (_options != null && _options.getCallbacks() != null) {
+            _options.getCallbacks().closeEvent(currentUrl);
+        }
+    }
+
+    private void applyTitleTextOptions(TextView titleText) {
+        if (titleText == null || _options == null) {
+            return;
+        }
+
+        String fontFamily = _options.getTitleFontFamily();
+        if (!TextUtils.isEmpty(fontFamily)) {
+            if (!fontFamily.equals(cachedTitleFontFamily)) {
+                cachedTitleFontFamily = fontFamily;
+                cachedTitleTypeface = resolveTitleTypeface(fontFamily);
+            }
+            if (cachedTitleTypeface != null) {
+                titleText.setTypeface(cachedTitleTypeface);
+            }
+        } else {
+            cachedTitleFontFamily = null;
+            cachedTitleTypeface = null;
+        }
+
+        Options.ButtonNearDone titleIcon = _options.getTitleIcon();
+        if (titleIcon == null) {
+            titleText.setCompoundDrawablesRelative(null, null, null, null);
+            cachedTitleIconDrawable = null;
+            cachedTitleIconResolved = false;
+            return;
+        }
+
+        if (!cachedTitleIconResolved) {
+            cachedTitleIconDrawable = loadTitleIconDrawable(titleIcon);
+            cachedTitleIconResolved = true;
+        }
+
+        if (cachedTitleIconDrawable != null) {
+            titleText.setCompoundDrawablesRelative(cachedTitleIconDrawable, null, null, null);
+            titleText.setCompoundDrawablePadding(Math.round(6 * _context.getResources().getDisplayMetrics().density));
+        } else {
+            titleText.setCompoundDrawablesRelative(null, null, null, null);
+        }
+    }
+
+    private Typeface resolveTitleTypeface(String fontFamily) {
+        try {
+            int fontResourceId = _context.getResources().getIdentifier(fontFamily, "font", _context.getPackageName());
+            if (fontResourceId != 0) {
+                Typeface typeface = ResourcesCompat.getFont(_context, fontResourceId);
+                if (typeface != null) {
+                    return typeface;
+                }
+            }
+            return Typeface.create(fontFamily, Typeface.NORMAL);
+        } catch (Exception e) {
+            Log.e("InAppBrowser", "Error loading title font: " + e.getMessage());
+            return Typeface.create(fontFamily, Typeface.NORMAL);
+        }
+    }
+
+    private Drawable loadTitleIconDrawable(Options.ButtonNearDone titleIcon) {
+        int width = Math.round(
+            (titleIcon.getWidth() > 0 ? titleIcon.getWidth() : 24) * _context.getResources().getDisplayMetrics().density
+        );
+        int height = Math.round(
+            (titleIcon.getHeight() > 0 ? titleIcon.getHeight() : 24) * _context.getResources().getDisplayMetrics().density
+        );
+
+        if ("vector".equals(titleIcon.getIconType())) {
+            try {
+                String iconName = titleIcon.getIcon();
+                if (iconName.endsWith(".xml")) {
+                    iconName = iconName.substring(0, iconName.length() - 4);
+                }
+                int resourceId = _context.getResources().getIdentifier(iconName, "drawable", _context.getPackageName());
+                if (resourceId == 0) {
+                    Log.e("InAppBrowser", "Title icon vector drawable not found: " + iconName);
+                    return null;
+                }
+                Drawable drawable = ResourcesCompat.getDrawable(_context.getResources(), resourceId, _context.getTheme());
+                if (drawable == null) {
+                    return null;
+                }
+                drawable = drawable.mutate();
+                drawable.setColorFilter(iconColor, PorterDuff.Mode.SRC_IN);
+                drawable.setBounds(0, 0, width, height);
+                return drawable;
+            } catch (Exception e) {
+                Log.e("InAppBrowser", "Error loading title vector icon: " + e.getMessage());
+                return null;
+            }
+        }
+
+        if ("asset".equals(titleIcon.getIconType())) {
+            InputStream inputStream = null;
+            try {
+                AssetManager assetManager = _context.getAssets();
+                try {
+                    inputStream = assetManager.open("public/" + titleIcon.getIcon());
+                } catch (IOException e) {
+                    inputStream = assetManager.open(titleIcon.getIcon());
+                }
+
+                SVG svg = SVG.getFromInputStream(inputStream);
+                if (svg == null) {
+                    return null;
+                }
+
+                svg.setDocumentWidth(width);
+                svg.setDocumentHeight(height);
+                Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+                Canvas canvas = new Canvas(bitmap);
+                svg.renderToCanvas(canvas);
+
+                Paint paint = new Paint();
+                paint.setColorFilter(new PorterDuffColorFilter(iconColor, PorterDuff.Mode.SRC_IN));
+                Canvas colorFilterCanvas = new Canvas(bitmap);
+                colorFilterCanvas.drawBitmap(bitmap, 0, 0, paint);
+
+                BitmapDrawable drawable = new BitmapDrawable(_context.getResources(), bitmap);
+                drawable.setBounds(0, 0, width, height);
+                return drawable;
+            } catch (IOException | SVGParseException e) {
+                Log.e("InAppBrowser", "Error loading title asset icon: " + e.getMessage());
+            } finally {
+                if (inputStream != null) {
+                    try {
+                        inputStream.close();
+                    } catch (IOException e) {
+                        Log.e("InAppBrowser", "Error closing title icon stream: " + e.getMessage());
+                    }
+                }
+            }
+        }
+
+        return null;
     }
 
     private void setupToolbar() {
@@ -3878,6 +4035,9 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
                 TextView titleText = _toolbar.findViewById(R.id.titleText);
 
                 // Determine icon and text color
+                cachedTitleIconDrawable = null;
+                cachedTitleIconResolved = false;
+
                 int iconColor;
                 if (_options.getToolbarTextColor() != null && !_options.getToolbarTextColor().isEmpty()) {
                     try {
@@ -3938,30 +4098,21 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
                                     _options.getCloseModalOk(),
                                     new OnClickListener() {
                                         public void onClick(DialogInterface dialog, int which) {
-                                            // Close button clicked, do something
-                                            dismiss();
                                             if (_options != null && _options.getCallbacks() != null) {
-                                                // Notify that confirm was clicked
                                                 _options.getCallbacks().confirmBtnClicked(currentUrl);
-                                                _options.getCallbacks().closeEvent(currentUrl);
                                             }
+                                            performToolbarCloseAction(currentUrl);
                                         }
                                     }
                                 )
                                 .setNegativeButton(_options.getCloseModalCancel(), null)
                                 .show();
                         } else {
-                            dismiss();
-                            if (_options != null && _options.getCallbacks() != null) {
-                                _options.getCallbacks().closeEvent(currentUrl);
-                            }
+                            performToolbarCloseAction(currentUrl);
                         }
                     } else {
                         String currentUrl = getUrl();
-                        dismiss();
-                        if (_options != null && _options.getCallbacks() != null) {
-                            _options.getCallbacks().closeEvent(currentUrl);
-                        }
+                        performToolbarCloseAction(currentUrl);
                     }
                 }
             }
