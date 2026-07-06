@@ -168,6 +168,7 @@ public class Options {
     private boolean ignoreUntrustedSSLError;
     private boolean clientCertificatePrompt;
     private String preShowScript;
+    private String preShowScriptInjectionTime = "pageLoad";
     private String toolbarTextColor;
     private Pattern proxyRequestsPattern = null;
     private boolean proxyRequests = false;
@@ -617,6 +618,14 @@ public class Options {
         this.preShowScript = preLoadScript;
     }
 
+    public String getPreShowScriptInjectionTime() {
+        return preShowScriptInjectionTime;
+    }
+
+    public void setPreShowScriptInjectionTime(String preShowScriptInjectionTime) {
+        this.preShowScriptInjectionTime = preShowScriptInjectionTime != null ? preShowScriptInjectionTime : "pageLoad";
+    }
+
     public boolean getPreventDeeplink() {
         return preventDeeplink;
     }
@@ -753,6 +762,7 @@ public class Options {
         copy.setIgnoreUntrustedSSLError(ignoreUntrustedSSLError);
         copy.setClientCertificatePrompt(clientCertificatePrompt);
         copy.setPreShowScript(preShowScript);
+        copy.setPreShowScriptInjectionTime(preShowScriptInjectionTime);
         copy.setToolbarTextColor(toolbarTextColor);
         copy.setProxyRequestsPattern(proxyRequestsPattern);
         copy.setProxyRequests(proxyRequests);

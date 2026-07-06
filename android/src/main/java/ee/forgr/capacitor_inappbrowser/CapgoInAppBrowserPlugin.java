@@ -1143,6 +1143,7 @@ public class CapgoInAppBrowserPlugin extends Plugin implements WebViewDialog.Per
 
         options.setShareDisclaimer(call.getObject("shareDisclaimer", null));
         options.setPreShowScript(call.getString("preShowScript", null));
+        options.setPreShowScriptInjectionTime(call.getString("preShowScriptInjectionTime", "pageLoad"));
         options.setShareSubject(call.getString("shareSubject", null));
         options.setToolbarType(call.getString("toolbarType", ""));
         options.setPreventDeeplink(Boolean.TRUE.equals(call.getBoolean("preventDeeplink", false)));
