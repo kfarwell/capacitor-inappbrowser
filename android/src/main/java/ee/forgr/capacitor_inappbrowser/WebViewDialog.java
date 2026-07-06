@@ -377,6 +377,9 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
 
     Semaphore preShowSemaphore = null;
     String preShowError = null;
+    // True when preShowScript was registered via WebViewCompat.addDocumentStartJavaScript;
+    // the blocking evaluateJavascript injection in onPageFinished is skipped in that case.
+    private boolean preShowInjectedAtDocumentStart = false;
 
     public PermissionRequest currentPermissionRequest;
     public static final int FILE_CHOOSER_REQUEST_CODE = 1000;
@@ -3409,6 +3412,14 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
         try {
             injectDocumentStartPostMessageBridge();
             WebViewCompat.addDocumentStartJavaScript(_webView, createMobileAppBridgeScript(), Collections.singleton("*"));
+            // Honor preShowScriptInjectionTime: "documentStart" (matches iOS WKUserScript
+            // .atDocumentStart). Runs before page scripts and persists across navigations,
+            // so the blocking semaphore injection in onPageFinished is not needed.
+            String preShowScript = _options.getPreShowScript();
+            if (preShowScript != null && !preShowScript.isEmpty() && "documentStart".equals(_options.getPreShowScriptInjectionTime())) {
+                WebViewCompat.addDocumentStartJavaScript(_webView, preShowScript, Collections.singleton("*"));
+                preShowInjectedAtDocumentStart = true;
+            }
         } catch (Exception e) {
             Log.e("InAppBrowser", "Error injecting document-start JavaScript interface: " + e.getMessage());
         }
@@ -5392,7 +5403,10 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
                         isInitialized = true;
                         _webView.clearHistory();
                         if (_options.isPresentAfterPageLoad()) {
-                            boolean usePreShowScript = _options.getPreShowScript() != null && !_options.getPreShowScript().isEmpty();
+                            boolean usePreShowScript =
+                                _options.getPreShowScript() != null &&
+                                !_options.getPreShowScript().isEmpty() &&
+                                !preShowInjectedAtDocumentStart;
                             if (!usePreShowScript) {
                                 showAccordingToLayerModeOrFallback();
                                 resolveOpenWebViewIfNeeded();
@@ -5419,7 +5433,9 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
                                 );
                             }
                         }
-                    } else if (_options.getPreShowScript() != null && !_options.getPreShowScript().isEmpty()) {
+                    } else if (
+                        _options.getPreShowScript() != null && !_options.getPreShowScript().isEmpty() && !preShowInjectedAtDocumentStart
+                    ) {
                         executorService.execute(
                             new Runnable() {
                                 @Override
