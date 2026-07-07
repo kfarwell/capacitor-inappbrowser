@@ -170,8 +170,12 @@ public class CapgoInAppBrowserPlugin extends Plugin implements WebViewDialog.Per
             }
 
             @Override
-            public void hideEvent(String url) {
-                notifyListeners("hideEvent", new JSObject().put("id", webViewId).put("url", url));
+            public void hideEvent(String url, JSObject screenshot) {
+                JSObject event = new JSObject().put("id", webViewId).put("url", url);
+                if (screenshot != null) {
+                    event.put("screenshot", screenshot);
+                }
+                notifyListeners("hideEvent", event);
             }
 
             @Override
@@ -1064,6 +1068,7 @@ public class CapgoInAppBrowserPlugin extends Plugin implements WebViewDialog.Per
         options.setIgnoreUntrustedSSLError(Boolean.TRUE.equals(call.getBoolean("ignoreUntrustedSSLError", false)));
         options.setClientCertificatePrompt(resolveClientCertificatePrompt(call));
         options.setShowScreenshotButton(Boolean.TRUE.equals(call.getBoolean("showScreenshotButton", false)));
+        options.setScreenshotOnHide(Boolean.TRUE.equals(call.getBoolean("screenshotOnHide", false)));
         options.setAllowScreenshotsFromWebPage(Boolean.TRUE.equals(call.getBoolean("allowScreenshotsFromWebPage", false)));
         options.setCaptureConsoleLogs(Boolean.TRUE.equals(call.getBoolean("captureConsoleLogs", false)));
         options.setHandleDownloads(Boolean.TRUE.equals(call.getBoolean("handleDownloads", false)));

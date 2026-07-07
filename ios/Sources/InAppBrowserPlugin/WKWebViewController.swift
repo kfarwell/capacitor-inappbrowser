@@ -416,6 +416,7 @@ open class WKWebViewController: UIViewController, WKScriptMessageHandler {
     var didpageInit = false
     open var closeModal = false
     open var closeAction = "close"
+    open var screenshotOnHide = false
     open var titleFontFamily: String?
     open var titleIcon: UIImage?
     open var closeModalTitle = ""
@@ -2216,6 +2217,7 @@ open class WKWebViewController: UIViewController, WKScriptMessageHandler {
         self.enableGooglePaySupport = parent.enableGooglePaySupport
         self.preventDeeplink = parent.preventDeeplink
         self.closeAction = parent.closeAction
+        self.screenshotOnHide = parent.screenshotOnHide
         self.titleFontFamily = parent.titleFontFamily
         self.titleIcon = parent.titleIcon
         self.openBlankTargetInWebView = parent.openBlankTargetInWebView
@@ -3043,7 +3045,19 @@ fileprivate extension WKWebViewController {
         if canDismiss {
             let currentUrl = webView?.url?.absoluteString ?? ""
             if closeAction == "hide" {
-                self.capBrowserPlugin?.handleWebViewDidHide(id: instanceId, url: currentUrl)
+                if screenshotOnHide {
+                    takeScreenshot { result in
+                        switch result {
+                        case .success(let screenshot):
+                            self.capBrowserPlugin?.handleWebViewDidHide(id: self.instanceId, url: currentUrl, screenshot: screenshot)
+                        case .failure(let error):
+                            print("[InAppBrowser] Failed to capture screenshot before hiding: \(error.localizedDescription)")
+                            self.capBrowserPlugin?.handleWebViewDidHide(id: self.instanceId, url: currentUrl)
+                        }
+                    }
+                } else {
+                    self.capBrowserPlugin?.handleWebViewDidHide(id: instanceId, url: currentUrl)
+                }
                 return
             }
             cleanupWebView()

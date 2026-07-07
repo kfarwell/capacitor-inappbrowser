@@ -3886,9 +3886,23 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
 
     private void performToolbarCloseAction(String currentUrl) {
         if (_options != null && "hide".equals(_options.getCloseAction())) {
-            setHidden(true);
-            if (_options.getCallbacks() != null) {
-                _options.getCallbacks().hideEvent(currentUrl);
+            if (_options.getScreenshotOnHide()) {
+                takeScreenshot(
+                    new ScreenshotResultCallback() {
+                        @Override
+                        public void onSuccess(JSObject screenshot) {
+                            hideAndEmit(currentUrl, screenshot);
+                        }
+
+                        @Override
+                        public void onError(String message) {
+                            Log.e("InAppBrowser", "Failed to capture screenshot before hiding: " + message);
+                            hideAndEmit(currentUrl, null);
+                        }
+                    }
+                );
+            } else {
+                hideAndEmit(currentUrl, null);
             }
             return;
         }
@@ -3896,6 +3910,13 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
         dismiss();
         if (_options != null && _options.getCallbacks() != null) {
             _options.getCallbacks().closeEvent(currentUrl);
+        }
+    }
+
+    private void hideAndEmit(String currentUrl, JSObject screenshot) {
+        setHidden(true);
+        if (_options != null && _options.getCallbacks() != null) {
+            _options.getCallbacks().hideEvent(currentUrl, screenshot);
         }
     }
 

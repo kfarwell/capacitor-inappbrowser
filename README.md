@@ -150,19 +150,20 @@ await InAppBrowser.show({ id: second.id });
 
 #### Hide from the native close button and brand the toolbar title
 
-Use `closeAction: CloseAction.HIDE` when the toolbar close button should hide the WebView instead of destroying it. Listen to `hideEvent` if your app needs to update Ionic state, then call `show()` later to bring the same browser session back.
+Use `closeAction: CloseAction.HIDE` when the toolbar close button should hide the WebView instead of destroying it. Listen to `hideEvent` if your app needs to update Ionic state, then call `show()` later to bring the same browser session back. Set `screenshotOnHide` to receive one last visible-page screenshot in that event.
 
 ```js
 import { CloseAction, InAppBrowser } from '@capgo/capacitor-inappbrowser';
 
-await InAppBrowser.addListener('hideEvent', ({ id, url }) => {
-  console.log('Browser hidden', id, url);
+await InAppBrowser.addListener('hideEvent', ({ id, url, screenshot }) => {
+  console.log('Browser hidden', id, url, screenshot?.dataUrl);
 });
 
 const { id } = await InAppBrowser.openWebView({
   url: 'https://example.com/checkout',
   title: 'Secure checkout',
   closeAction: CloseAction.HIDE,
+  screenshotOnHide: true,
   titleFontFamily: 'Inter',
   titleIcon: {
     ios: { iconType: 'sf-symbol', icon: 'lock.fill' },
@@ -975,15 +976,15 @@ Listen for close click only for openWebView
 ### addListener('hideEvent', ...)
 
 ```typescript
-addListener(eventName: 'hideEvent', listenerFunc: UrlChangeListener) => Promise<PluginListenerHandle>
+addListener(eventName: 'hideEvent', listenerFunc: HideListener) => Promise<PluginListenerHandle>
 ```
 
 Listen for webviews hidden by the toolbar close button when closeAction is <a href="#closeaction">CloseAction.HIDE</a>.
 
-| Param              | Type                                                            |
-| ------------------ | --------------------------------------------------------------- |
-| **`eventName`**    | <code>'hideEvent'</code>                                        |
-| **`listenerFunc`** | <code><a href="#urlchangelistener">UrlChangeListener</a></code> |
+| Param              | Type                                                  |
+| ------------------ | ----------------------------------------------------- |
+| **`eventName`**    | <code>'hideEvent'</code>                              |
+| **`listenerFunc`** | <code><a href="#hidelistener">HideListener</a></code> |
 
 **Returns:** <code>Promise&lt;<a href="#pluginlistenerhandle">PluginListenerHandle</a>&gt;</code>
 
@@ -1489,6 +1490,7 @@ And in the AndroidManifest.xml file:
 | **`isAnimated`**                       | <code>boolean</code>                                                                                                                                                   | Whether the webview opening is animated or not, ios only                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | <code>true</code>                                             |        |
 | **`showReloadButton`**                 | <code>boolean</code>                                                                                                                                                   | Shows a reload button that reloads the web page                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | <code>false</code>                                            | 1.0.15 |
 | **`closeAction`**                      | <code><a href="#closeaction">CloseAction</a></code>                                                                                                                    | closeAction controls what happens when the native toolbar close button is pressed. This does not change the behavior of close(), JavaScript window.mobileApp.close(), or native back navigation.                                                                                                                                                                                                                                                                                                                                                           | <code>CloseAction.CLOSE</code>                                | 8.7.7  |
+| **`screenshotOnHide`**                 | <code>boolean</code>                                                                                                                                                   | Captures the visible webview and includes it as `screenshot` in `hideEvent` before the toolbar close button hides the webview. Only applies when `closeAction` is <a href="#closeaction">`CloseAction.HIDE`</a>.                                                                                                                                                                                                                                                                                                                                           | <code>false</code>                                            | 8.7.10 |
 | **`closeModal`**                       | <code>boolean</code>                                                                                                                                                   | CloseModal: if true a confirm will be displayed when user clicks on close button, if false the browser will be closed immediately.                                                                                                                                                                                                                                                                                                                                                                                                                         | <code>false</code>                                            | 1.1.0  |
 | **`closeModalTitle`**                  | <code>string</code>                                                                                                                                                    | CloseModalTitle: title of the confirm when user clicks on close button                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | <code>"Close"</code>                                          | 1.1.0  |
 | **`closeModalDescription`**            | <code>string</code>                                                                                                                                                    | CloseModalDescription: description of the confirm when user clicks on close button                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | <code>"Are you sure you want to close this window?"</code>    | 1.1.0  |
@@ -1610,6 +1612,15 @@ Any regex property that is omitted is treated as a wildcard.
 | Prop     | Type                | Description          | Since  |
 | -------- | ------------------- | -------------------- | ------ |
 | **`id`** | <code>string</code> | Webview instance id. | 8.6.36 |
+
+
+#### HideEvent
+
+| Prop             | Type                                                          | Description                                                                                                                                              |
+| ---------------- | ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`id`**         | <code>string</code>                                           | Webview instance id.                                                                                                                                     |
+| **`url`**        | <code>string</code>                                           | URL active when the webview was hidden.                                                                                                                  |
+| **`screenshot`** | <code><a href="#screenshotresult">ScreenshotResult</a></code> | Screenshot captured immediately before the toolbar close button hides the webview. Present only when `screenshotOnHide` is enabled and capture succeeds. |
 
 
 #### BtnEvent
@@ -1835,6 +1846,11 @@ Construct a type with a set of properties K of type T
 #### ButtonNearListener
 
 <code>(state: <a href="#buttonneardoneevent">ButtonNearDoneEvent</a>): void</code>
+
+
+#### HideListener
+
+<code>(state: <a href="#hideevent">HideEvent</a>): void</code>
 
 
 #### ConfirmBtnListener
