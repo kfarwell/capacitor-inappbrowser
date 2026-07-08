@@ -1650,7 +1650,7 @@ open class WKWebViewController: UIViewController, WKScriptMessageHandler {
         }
     }
 
-    func takeScreenshot(completion: @escaping (Result<[String: Any], Error>) -> Void) {
+    func takeScreenshot(emitEvent: Bool = true, completion: @escaping (Result<[String: Any], Error>) -> Void) {
         DispatchQueue.main.async {
             guard let webView = self.webView else {
                 completion(.failure(NSError(domain: "InAppBrowser", code: 1, userInfo: [NSLocalizedDescriptionKey: "WebView is not initialized"])))
@@ -1688,7 +1688,9 @@ open class WKWebViewController: UIViewController, WKScriptMessageHandler {
                     "width": Int(image.size.width * image.scale),
                     "height": Int(image.size.height * image.scale)
                 ]
-                self.emit("screenshotTaken", data: result)
+                if emitEvent {
+                    self.emit("screenshotTaken", data: result)
+                }
                 completion(.success(result))
             }
         }
@@ -3051,7 +3053,7 @@ fileprivate extension WKWebViewController {
                 }
                 toolbarHideInProgress = true
                 if screenshotOnHide {
-                    takeScreenshot { result in
+                    takeScreenshot(emitEvent: false) { result in
                         switch result {
                         case .success(let screenshot):
                             self.capBrowserPlugin?.handleWebViewDidHide(id: self.instanceId, url: currentUrl, screenshot: screenshot)

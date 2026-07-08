@@ -3302,6 +3302,10 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
     }
 
     public void takeScreenshot(ScreenshotResultCallback callback) {
+        takeScreenshot(true, callback);
+    }
+
+    private void takeScreenshot(boolean emitEvent, ScreenshotResultCallback callback) {
         if (_webView == null) {
             callback.onError("WebView is not initialized");
             return;
@@ -3346,7 +3350,7 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
                     result.put("width", width);
                     result.put("height", height);
 
-                    postScreenshotSuccess(callback, result);
+                    postScreenshotSuccess(callback, result, emitEvent);
                 } catch (IOException e) {
                     postScreenshotError(callback, "Failed to encode screenshot: " + e.getMessage());
                 } finally {
@@ -3356,13 +3360,13 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
         });
     }
 
-    private void postScreenshotSuccess(ScreenshotResultCallback callback, JSObject result) {
+    private void postScreenshotSuccess(ScreenshotResultCallback callback, JSObject result, boolean emitEvent) {
         if (_webView == null) {
             callback.onError("WebView is not initialized");
             return;
         }
         _webView.post(() -> {
-            if (_options != null && _options.getCallbacks() != null) {
+            if (emitEvent && _options != null && _options.getCallbacks() != null) {
                 _options.getCallbacks().screenshotTaken(result);
             }
             callback.onSuccess(result);
@@ -3894,6 +3898,7 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
             toolbarHideInProgress = true;
             if (_options.getScreenshotOnHide()) {
                 takeScreenshot(
+                    false,
                     new ScreenshotResultCallback() {
                         @Override
                         public void onSuccess(JSObject screenshot) {
