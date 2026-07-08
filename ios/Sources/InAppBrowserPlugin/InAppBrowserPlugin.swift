@@ -1586,6 +1586,7 @@ public class CapgoInAppBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
                 }
                 self.dismissNavigationControllerIfPresented(navigationController)
             } else {
+                webViewController.toolbarHideInProgress = false
                 if webView.superview !== webViewController.view {
                     self.attachWebViewToController(webViewController, webView: webView)
                 }

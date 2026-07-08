@@ -352,6 +352,7 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
     private Drawable cachedTitleIconDrawable;
     private boolean cachedTitleIconResolved;
     private boolean isHiddenModeActive = false;
+    private boolean toolbarHideInProgress = false;
     private WindowManager.LayoutParams previousWindowAttributes;
     private Drawable previousWindowBackground;
     private ViewGroup.LayoutParams previousWebViewLayoutParams;
@@ -2912,6 +2913,7 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
                 }
             }
         } else {
+            toolbarHideInProgress = false;
             if (isHiddenModeActive) {
                 restoreVisibleMode();
             }
@@ -3886,6 +3888,10 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
 
     private void performToolbarCloseAction(String currentUrl) {
         if (_options != null && "hide".equals(_options.getCloseAction())) {
+            if (toolbarHideInProgress) {
+                return;
+            }
+            toolbarHideInProgress = true;
             if (_options.getScreenshotOnHide()) {
                 takeScreenshot(
                     new ScreenshotResultCallback() {

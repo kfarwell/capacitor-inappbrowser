@@ -417,6 +417,7 @@ open class WKWebViewController: UIViewController, WKScriptMessageHandler {
     open var closeModal = false
     open var closeAction = "close"
     open var screenshotOnHide = false
+    var toolbarHideInProgress = false
     open var titleFontFamily: String?
     open var titleIcon: UIImage?
     open var closeModalTitle = ""
@@ -3045,6 +3046,10 @@ fileprivate extension WKWebViewController {
         if canDismiss {
             let currentUrl = webView?.url?.absoluteString ?? ""
             if closeAction == "hide" {
+                if toolbarHideInProgress {
+                    return
+                }
+                toolbarHideInProgress = true
                 if screenshotOnHide {
                     takeScreenshot { result in
                         switch result {
