@@ -597,6 +597,24 @@ export interface ScreenshotResult {
   height: number;
 }
 
+export interface HideEvent {
+  /**
+   * Webview instance id.
+   */
+  id?: string;
+  /**
+   * URL active when the webview was hidden.
+   */
+  url: string;
+  /**
+   * Screenshot captured immediately before the toolbar close button hides the webview.
+   * Present only when `screenshotOnHide` is enabled and capture succeeds.
+   */
+  screenshot?: ScreenshotResult;
+}
+
+export type HideListener = (state: HideEvent) => void;
+
 export interface CloseWebviewOptions {
   /**
    * Target webview id to close. If omitted, closes the active webview.
@@ -904,6 +922,16 @@ export interface OpenWebViewOptions {
    * closeAction: CloseAction.HIDE
    */
   closeAction?: CloseAction;
+  /**
+   * Captures the visible webview and includes it as `screenshot` in `hideEvent`
+   * before the toolbar close button hides the webview.
+   *
+   * Only applies when `closeAction` is `CloseAction.HIDE`.
+   *
+   * @default false
+   * @since 8.7.10
+   */
+  screenshotOnHide?: boolean;
   /**
    * CloseModal: if true a confirm will be displayed when user clicks on close button, if false the browser will be closed immediately.
    * @since 1.1.0
@@ -1491,7 +1519,7 @@ export interface InAppBrowserPlugin {
    *
    * @since 8.7.7
    */
-  addListener(eventName: 'hideEvent', listenerFunc: UrlChangeListener): Promise<PluginListenerHandle>;
+  addListener(eventName: 'hideEvent', listenerFunc: HideListener): Promise<PluginListenerHandle>;
   /**
    * Will be triggered when user clicks on confirm button when disclaimer is required,
    * works with openWebView shareDisclaimer and closeModal

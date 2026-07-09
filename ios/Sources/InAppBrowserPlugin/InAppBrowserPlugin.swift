@@ -687,14 +687,20 @@ public class CapgoInAppBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
         self.navigationWebViewController = nil
     }
 
-    func handleWebViewDidHide(id: String, url: String) {
+    func handleWebViewDidHide(id: String, url: String, screenshot: [String: Any]? = nil) {
+        var payload: [String: Any] = ["url": url]
+        if let screenshot {
+            payload["screenshot"] = screenshot
+        }
+
         if !id.isEmpty {
-            self.notifyListeners("hideEvent", data: ["id": id, "url": url])
+            payload["id"] = id
+            self.notifyListeners("hideEvent", data: payload)
             self.setHiddenState(true, targetId: id, call: nil)
             return
         }
 
-        self.notifyListeners("hideEvent", data: ["url": url])
+        self.notifyListeners("hideEvent", data: payload)
         self.setHiddenState(true, targetId: activeWebViewId, call: nil)
     }
 
@@ -992,6 +998,7 @@ public class CapgoInAppBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
         let hiddenPopupWindow = call.getBool("hiddenPopupWindow", false)
         let allowWebViewJsVisibilityControl = self.getConfig().getBoolean("allowWebViewJsVisibilityControl", false)
         let allowScreenshotsFromWebPage = call.getBool("allowScreenshotsFromWebPage", false)
+        let screenshotOnHide = call.getBool("screenshotOnHide", false)
         let captureConsoleLogs = call.getBool("captureConsoleLogs", false)
         let handleDownloads = call.getBool("handleDownloads", false)
         let persistWebViewData = call.getBool("persistWebViewData", true)
@@ -1288,6 +1295,7 @@ public class CapgoInAppBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
             webViewController.capBrowserPlugin = self
             webViewController.title = call.getString("title", "New Window")
             webViewController.closeAction = closeAction
+            webViewController.screenshotOnHide = screenshotOnHide
             webViewController.titleFontFamily = titleFontFamily
             webViewController.titleIcon = titleIcon
             // Only set shareSubject if not already set for activity mode
@@ -1578,6 +1586,7 @@ public class CapgoInAppBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
                 }
                 self.dismissNavigationControllerIfPresented(navigationController)
             } else {
+                webViewController.toolbarHideInProgress = false
                 if webView.superview !== webViewController.view {
                     self.attachWebViewToController(webViewController, webView: webView)
                 }

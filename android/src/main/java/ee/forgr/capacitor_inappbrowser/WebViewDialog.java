@@ -352,6 +352,7 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
     private Drawable cachedTitleIconDrawable;
     private boolean cachedTitleIconResolved;
     private boolean isHiddenModeActive = false;
+    private boolean toolbarHideInProgress = false;
     private WindowManager.LayoutParams previousWindowAttributes;
     private Drawable previousWindowBackground;
     private ViewGroup.LayoutParams previousWebViewLayoutParams;
@@ -2912,6 +2913,7 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
                 }
             }
         } else {
+            toolbarHideInProgress = false;
             if (isHiddenModeActive) {
                 restoreVisibleMode();
             }
@@ -3300,6 +3302,10 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
     }
 
     public void takeScreenshot(ScreenshotResultCallback callback) {
+        takeScreenshot(true, callback);
+    }
+
+    private void takeScreenshot(boolean emitEvent, ScreenshotResultCallback callback) {
         if (_webView == null) {
             callback.onError("WebView is not initialized");
             return;
@@ -3344,7 +3350,7 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
                     result.put("width", width);
                     result.put("height", height);
 
-                    postScreenshotSuccess(callback, result);
+                    postScreenshotSuccess(callback, result, emitEvent);
                 } catch (IOException e) {
                     postScreenshotError(callback, "Failed to encode screenshot: " + e.getMessage());
                 } finally {
@@ -3354,13 +3360,13 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
         });
     }
 
-    private void postScreenshotSuccess(ScreenshotResultCallback callback, JSObject result) {
+    private void postScreenshotSuccess(ScreenshotResultCallback callback, JSObject result, boolean emitEvent) {
         if (_webView == null) {
             callback.onError("WebView is not initialized");
             return;
         }
         _webView.post(() -> {
-            if (_options != null && _options.getCallbacks() != null) {
+            if (emitEvent && _options != null && _options.getCallbacks() != null) {
                 _options.getCallbacks().screenshotTaken(result);
             }
             callback.onSuccess(result);
@@ -3886,9 +3892,28 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
 
     private void performToolbarCloseAction(String currentUrl) {
         if (_options != null && "hide".equals(_options.getCloseAction())) {
-            setHidden(true);
-            if (_options.getCallbacks() != null) {
-                _options.getCallbacks().hideEvent(currentUrl);
+            if (toolbarHideInProgress) {
+                return;
+            }
+            toolbarHideInProgress = true;
+            if (_options.getScreenshotOnHide()) {
+                takeScreenshot(
+                    false,
+                    new ScreenshotResultCallback() {
+                        @Override
+                        public void onSuccess(JSObject screenshot) {
+                            hideAndEmit(currentUrl, screenshot);
+                        }
+
+                        @Override
+                        public void onError(String message) {
+                            Log.e("InAppBrowser", "Failed to capture screenshot before hiding: " + message);
+                            hideAndEmit(currentUrl, null);
+                        }
+                    }
+                );
+            } else {
+                hideAndEmit(currentUrl, null);
             }
             return;
         }
@@ -3896,6 +3921,13 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
         dismiss();
         if (_options != null && _options.getCallbacks() != null) {
             _options.getCallbacks().closeEvent(currentUrl);
+        }
+    }
+
+    private void hideAndEmit(String currentUrl, JSObject screenshot) {
+        setHidden(true);
+        if (_options != null && _options.getCallbacks() != null) {
+            _options.getCallbacks().hideEvent(currentUrl, screenshot);
         }
     }
 

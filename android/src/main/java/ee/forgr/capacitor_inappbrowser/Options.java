@@ -193,6 +193,7 @@ public class Options {
     private boolean toBack = false;
     private boolean transparentBackground = true;
     private boolean showScreenshotButton = false;
+    private boolean screenshotOnHide = false;
     private boolean allowWebViewJsVisibilityControl = false;
     private boolean allowScreenshotsFromWebPage = false;
     private boolean captureConsoleLogs = false;
@@ -270,6 +271,14 @@ public class Options {
 
     public void setShowScreenshotButton(boolean showScreenshotButton) {
         this.showScreenshotButton = showScreenshotButton;
+    }
+
+    public boolean getScreenshotOnHide() {
+        return screenshotOnHide;
+    }
+
+    public void setScreenshotOnHide(boolean screenshotOnHide) {
+        this.screenshotOnHide = screenshotOnHide;
     }
 
     public boolean getAllowScreenshotsFromWebPage() {
@@ -787,6 +796,7 @@ public class Options {
         copy.setY(y);
         copy.setHidden(hidden || hiddenPopupWindow);
         copy.setShowScreenshotButton(showScreenshotButton);
+        copy.setScreenshotOnHide(screenshotOnHide);
         copy.setAllowWebViewJsVisibilityControl(allowWebViewJsVisibilityControl);
         copy.setAllowScreenshotsFromWebPage(allowScreenshotsFromWebPage);
         copy.setCaptureConsoleLogs(captureConsoleLogs);

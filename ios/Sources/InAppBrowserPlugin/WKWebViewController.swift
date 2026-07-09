@@ -416,6 +416,8 @@ open class WKWebViewController: UIViewController, WKScriptMessageHandler {
     var didpageInit = false
     open var closeModal = false
     open var closeAction = "close"
+    open var screenshotOnHide = false
+    var toolbarHideInProgress = false
     open var titleFontFamily: String?
     open var titleIcon: UIImage?
     open var closeModalTitle = ""
@@ -1648,7 +1650,7 @@ open class WKWebViewController: UIViewController, WKScriptMessageHandler {
         }
     }
 
-    func takeScreenshot(completion: @escaping (Result<[String: Any], Error>) -> Void) {
+    func takeScreenshot(emitEvent: Bool = true, completion: @escaping (Result<[String: Any], Error>) -> Void) {
         DispatchQueue.main.async {
             guard let webView = self.webView else {
                 completion(.failure(NSError(domain: "InAppBrowser", code: 1, userInfo: [NSLocalizedDescriptionKey: "WebView is not initialized"])))
@@ -1686,7 +1688,9 @@ open class WKWebViewController: UIViewController, WKScriptMessageHandler {
                     "width": Int(image.size.width * image.scale),
                     "height": Int(image.size.height * image.scale)
                 ]
-                self.emit("screenshotTaken", data: result)
+                if emitEvent {
+                    self.emit("screenshotTaken", data: result)
+                }
                 completion(.success(result))
             }
         }
@@ -2216,6 +2220,7 @@ open class WKWebViewController: UIViewController, WKScriptMessageHandler {
         self.enableGooglePaySupport = parent.enableGooglePaySupport
         self.preventDeeplink = parent.preventDeeplink
         self.closeAction = parent.closeAction
+        self.screenshotOnHide = parent.screenshotOnHide
         self.titleFontFamily = parent.titleFontFamily
         self.titleIcon = parent.titleIcon
         self.openBlankTargetInWebView = parent.openBlankTargetInWebView
@@ -3043,7 +3048,23 @@ fileprivate extension WKWebViewController {
         if canDismiss {
             let currentUrl = webView?.url?.absoluteString ?? ""
             if closeAction == "hide" {
-                self.capBrowserPlugin?.handleWebViewDidHide(id: instanceId, url: currentUrl)
+                if toolbarHideInProgress {
+                    return
+                }
+                toolbarHideInProgress = true
+                if screenshotOnHide {
+                    takeScreenshot(emitEvent: false) { result in
+                        switch result {
+                        case .success(let screenshot):
+                            self.capBrowserPlugin?.handleWebViewDidHide(id: self.instanceId, url: currentUrl, screenshot: screenshot)
+                        case .failure(let error):
+                            print("[InAppBrowser] Failed to capture screenshot before hiding: \(error.localizedDescription)")
+                            self.capBrowserPlugin?.handleWebViewDidHide(id: self.instanceId, url: currentUrl)
+                        }
+                    }
+                } else {
+                    self.capBrowserPlugin?.handleWebViewDidHide(id: instanceId, url: currentUrl)
+                }
                 return
             }
             cleanupWebView()
