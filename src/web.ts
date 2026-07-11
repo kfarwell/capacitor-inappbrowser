@@ -6,6 +6,7 @@ import type {
   OpenOptions,
   GetCookieOptions,
   ClearCookieOptions,
+  BringToFrontOptions,
   DimensionOptions,
   DispatchInputEventOptions,
   OpenSecureWindowOptions,
@@ -71,7 +72,7 @@ export class InAppBrowserWeb extends WebPlugin implements InAppBrowserPlugin {
     return;
   }
 
-  async bringToFront(options?: { id?: string }): Promise<void> {
+  async bringToFront(options?: BringToFrontOptions): Promise<void> {
     console.log('bringToFront not supported on web', options);
     return;
   }

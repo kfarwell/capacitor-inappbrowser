@@ -1667,6 +1667,7 @@ public class CapgoInAppBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc func bringToFront(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
+            let isAnimated = call.getBool("isAnimated", true)
             let targetId = call.getString("id") ?? self.activeWebViewId
             guard let resolvedId = targetId,
                   let webViewController = self.resolveWebViewController(for: resolvedId),
@@ -1684,7 +1685,7 @@ public class CapgoInAppBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
             self.setActiveWebView(id: resolvedId, webView: webViewController, navigationController: navigationController)
             if navigationController.presentingViewController == nil {
                 let presenter = self.bridge?.viewController?.presentedViewController ?? self.bridge?.viewController
-                presenter?.present(navigationController, animated: true, completion: {
+                presenter?.present(navigationController, animated: isAnimated, completion: {
                     call.resolve()
                 })
                 return
