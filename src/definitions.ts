@@ -163,6 +163,19 @@ export interface LayerOptions {
   transparentBackground?: boolean;
 }
 
+export interface BringToFrontOptions {
+  /**
+   * Target webview id. If omitted, targets the active webview.
+   */
+  id?: string;
+  /**
+   * Whether bringing the webview to the front is animated on iOS.
+   *
+   * @default true
+   */
+  isAnimated?: boolean;
+}
+
 export interface DispatchPointerInputEventOptions {
   /**
    * Target webview id. If omitted, targets the active webview.
@@ -1446,9 +1459,10 @@ export interface InAppBrowserPlugin {
   sendToBack(options?: LayerOptions): Promise<void>;
   /**
    * Moves a browser that was behind the host WebView back to the front.
+   * On iOS, set `isAnimated` to `false` to skip the presentation animation.
    * When `id` is omitted, targets the active webview.
    */
-  bringToFront(options?: { id?: string }): Promise<void>;
+  bringToFront(options?: BringToFrontOptions): Promise<void>;
   /**
    * Dispatches a click, touch, or scroll event to a managed browser.
    * Coordinates are relative to the browser viewport in CSS pixels.

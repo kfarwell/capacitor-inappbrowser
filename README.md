@@ -784,15 +784,16 @@ Use `dispatchInputEvent()` to forward overlay gestures to the browser while it i
 ### bringToFront(...)
 
 ```typescript
-bringToFront(options?: { id?: string | undefined; } | undefined) => Promise<void>
+bringToFront(options?: BringToFrontOptions | undefined) => Promise<void>
 ```
 
 Moves a browser that was behind the host WebView back to the front.
+On iOS, set `isAnimated` to `false` to skip the presentation animation.
 When `id` is omitted, targets the active webview.
 
-| Param         | Type                          |
-| ------------- | ----------------------------- |
-| **`options`** | <code>{ id?: string; }</code> |
+| Param         | Type                                                                |
+| ------------- | ------------------------------------------------------------------- |
+| **`options`** | <code><a href="#bringtofrontoptions">BringToFrontOptions</a></code> |
 
 --------------------
 
@@ -1435,6 +1436,14 @@ And in the AndroidManifest.xml file:
 | --------------------------- | -------------------- | ------------------------------------------------------------------------------------ | ----------------- |
 | **`id`**                    | <code>string</code>  | Target webview id. If omitted, targets the active webview.                           |                   |
 | **`transparentBackground`** | <code>boolean</code> | Makes the Capacitor host WebView transparent while this native webview is behind it. | <code>true</code> |
+
+
+#### BringToFrontOptions
+
+| Prop             | Type                 | Description                                                   | Default           |
+| ---------------- | -------------------- | ------------------------------------------------------------- | ----------------- |
+| **`id`**         | <code>string</code>  | Target webview id. If omitted, targets the active webview.    |                   |
+| **`isAnimated`** | <code>boolean</code> | Whether bringing the webview to the front is animated on iOS. | <code>true</code> |
 
 
 #### DispatchPointerInputEventOptions
