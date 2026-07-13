@@ -13,6 +13,70 @@ enum ActiveWebViewSupport {
     }
 }
 
+enum BlankTargetNavigationSupport {
+    enum Action: Equatable {
+        case openExternalApp
+        case loadInCurrentWebView
+        case createPopup
+    }
+
+    /// Decides how a `target=_blank` / new-window request should be handled.
+    static func resolve(
+        urlIsHttpOrHttps: Bool,
+        openBlankTargetInWebView: Bool,
+        preventDeeplink: Bool,
+        isAuthorizedAppLink: Bool
+    ) -> Action {
+        guard urlIsHttpOrHttps else {
+            return .createPopup
+        }
+
+        if isAuthorizedAppLink && !preventDeeplink {
+            return .openExternalApp
+        }
+
+        if openBlankTargetInWebView || preventDeeplink {
+            return .loadInCurrentWebView
+        }
+
+        return .createPopup
+    }
+
+    /// Prefer the parent content VC so we never present from a UINavigationController
+    /// whose root view was replaced (custom width/height PassThroughView).
+    static func popupPresenter(
+        parentController: UIViewController,
+        bridgeViewController: UIViewController?
+    ) -> UIViewController {
+        if parentController.view.window != nil {
+            return parentController
+        }
+
+        if let navigationController = parentController.navigationController,
+           navigationController.view.window != nil {
+            if let visible = navigationController.visibleViewController,
+               visible.view.window != nil {
+                return visible
+            }
+            return navigationController
+        }
+
+        var top = bridgeViewController
+        while let presented = top?.presentedViewController {
+            top = presented
+        }
+        return top ?? parentController
+    }
+
+    static func topPresenter(from root: UIViewController) -> UIViewController {
+        var top = root
+        while let presented = top.presentedViewController {
+            top = presented
+        }
+        return top
+    }
+}
+
 protocol ProxyRequestLocating {
     func hasPendingProxyRequest(_ requestId: String) -> Bool
 }
@@ -314,8 +378,25 @@ public class CapgoInAppBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
                 return nil
             }
         } else {
-            let presenter = self.bridge?.viewController?.presentedViewController ?? self.bridge?.viewController
-            presenter?.present(navigationController, animated: true, completion: nil)
+            navigationController.modalPresentationStyle = .overFullScreen
+            navigationController.modalTransitionStyle = .crossDissolve
+
+            let presenter = BlankTargetNavigationSupport.popupPresenter(
+                parentController: parentController,
+                bridgeViewController: self.bridge?.viewController
+            )
+            presentNavigationControllerSafely(navigationController, from: presenter, animated: true) { [weak self] presented in
+                if !presented {
+                    self?.unregisterWebView(id: popupId)
+                }
+                self?.notifyPopupWindowOpened(
+                    id: popupId,
+                    parentId: parentController.instanceId,
+                    url: navigationAction.request.url?.absoluteString,
+                    visible: presented
+                )
+            }
+            return popupWebView
         }
         notifyPopupWindowOpened(
             id: popupId,
@@ -324,6 +405,43 @@ public class CapgoInAppBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
             visible: !shouldHidePopup
         )
         return popupWebView
+    }
+
+    private func presentNavigationControllerSafely(
+        _ navigationController: UINavigationController,
+        from presenter: UIViewController?,
+        animated: Bool,
+        completion: ((Bool) -> Void)? = nil
+    ) {
+        guard let presenter else {
+            completion?(false)
+            return
+        }
+
+        let presentBlock = {
+            if navigationController.presentingViewController != nil {
+                completion?(true)
+                return
+            }
+
+            let top = BlankTargetNavigationSupport.topPresenter(from: presenter)
+            guard top.presentedViewController == nil else {
+                print("[InAppBrowser] Skipping present; presenter already has a presented VC")
+                completion?(false)
+                return
+            }
+            top.present(navigationController, animated: animated) {
+                completion?(true)
+            }
+        }
+
+        if Thread.isMainThread,
+           !presenter.isBeingPresented,
+           !presenter.isBeingDismissed {
+            presentBlock()
+        } else {
+            DispatchQueue.main.async(execute: presentBlock)
+        }
     }
 
     private func resolveWebViewController(for id: String?) -> WKWebViewController? {
@@ -421,9 +539,13 @@ public class CapgoInAppBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
         }
         dismissActiveKeyboard()
         let presenter = self.bridge?.viewController?.presentedViewController ?? self.bridge?.viewController
-        presenter?.present(navigationController, animated: isAnimated, completion: {
-            self.currentPluginCall?.resolve()
-        })
+        presentNavigationControllerSafely(navigationController, from: presenter, animated: isAnimated) { presented in
+            if presented {
+                self.currentPluginCall?.resolve()
+            } else {
+                self.currentPluginCall?.reject("Failed to present webview")
+            }
+        }
         return true
     }
 
@@ -1610,9 +1732,13 @@ public class CapgoInAppBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
 
                     if navController.presentingViewController == nil {
                         let presenter = self.bridge?.viewController?.presentedViewController ?? self.bridge?.viewController
-                        presenter?.present(navController, animated: true, completion: {
-                            call?.resolve()
-                        })
+                        self.presentNavigationControllerSafely(navController, from: presenter, animated: true) { presented in
+                            if presented {
+                                call?.resolve()
+                            } else {
+                                call?.reject("Failed to present webview")
+                            }
+                        }
                         return
                     }
                 }
@@ -1664,7 +1790,6 @@ public class CapgoInAppBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
             }
         }
     }
-
     @objc func bringToFront(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
             let isAnimated = call.getBool("isAnimated", true)
@@ -1685,9 +1810,13 @@ public class CapgoInAppBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
             self.setActiveWebView(id: resolvedId, webView: webViewController, navigationController: navigationController)
             if navigationController.presentingViewController == nil {
                 let presenter = self.bridge?.viewController?.presentedViewController ?? self.bridge?.viewController
-                presenter?.present(navigationController, animated: isAnimated, completion: {
-                    call.resolve()
-                })
+                self.presentNavigationControllerSafely(navigationController, from: presenter, animated: isAnimated) { presented in
+                    if presented {
+                        call.resolve()
+                    } else {
+                        call.reject("Failed to present webview")
+                    }
+                }
                 return
             }
             call.resolve()
