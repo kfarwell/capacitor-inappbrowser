@@ -78,6 +78,39 @@ enum BlankTargetNavigationSupport {
     }
 }
 
+enum AuthorizedAppLinkOpenSupport {
+    enum Outcome: Equatable {
+        case openedExternally
+        case loadInWebView
+    }
+
+    /// Universal Link first; if that fails, system open (App Store / Safari / etc.).
+    /// Only stay in-webview when both external attempts fail.
+    static func resolve(universalLinkOpened: Bool, systemOpenSucceeded: Bool) -> Outcome {
+        if universalLinkOpened || systemOpenSucceeded {
+            return .openedExternally
+        }
+        return .loadInWebView
+    }
+}
+
+enum CustomSchemeOpenSupport {
+    static let alwaysAttemptOpenSchemes = ["tel", "mailto", "sms"]
+
+    /// `canOpenURL` needs LSApplicationQueriesSchemes; `open` does not.
+    /// Always attempt open for Mail/Phone/Messages even when the query fails.
+    static func shouldAttemptOpen(scheme: String?, canOpenURL: Bool) -> Bool {
+        if canOpenURL {
+            return true
+        }
+        guard let scheme = scheme?.lowercased(), !scheme.isEmpty else {
+            return false
+        }
+        return alwaysAttemptOpenSchemes.contains(scheme)
+    }
+}
+
+
 protocol ProxyRequestLocating {
     func hasPendingProxyRequest(_ requestId: String) -> Bool
 }

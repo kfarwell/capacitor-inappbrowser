@@ -1154,7 +1154,11 @@ export interface OpenWebViewOptions {
    */
   enableZoom?: boolean;
   /**
-   * preventDeeplink: if true, the deeplink will not be opened, if false the deeplink will be opened when clicked on the link. on IOS each schema need to be added to info.plist file under LSApplicationQueriesSchemes when false to make it work.
+   * If true, deeplinks and external app hand-off are blocked and stay in the webview.
+   * If false (default), custom schemes such as `tel:`, `mailto:`, and `sms:` open natively.
+   * On iOS, listing a custom scheme under `LSApplicationQueriesSchemes` is only required when
+   * you rely on `canOpenURL` for that scheme (for example `instagram://`). It is not required
+   * for HTTPS `authorizedAppLinks`, and `mailto`/`tel`/`sms` open without that Info.plist entry.
    * @since 0.1.0
    * @default false
    * @example
@@ -1178,16 +1182,19 @@ export interface OpenWebViewOptions {
   /**
    * List of base URLs whose hosts are treated as authorized App Links (Android) and Universal Links (iOS).
    *
-   * - On both platforms, only HTTPS links whose host matches any entry in this list
-   *   will attempt to open via the corresponding native application.
-   * - If the app is not installed or the system cannot handle the link, the URL
-   *   will continue loading inside the in-app browser.
+   * - On both platforms, only HTTP(S) links whose host matches any entry in this list
+   *   will attempt to leave the in-app browser for the native / system handler.
+   * - iOS tries a Universal Link first (`universalLinksOnly`), then falls back to a normal
+   *   system open (App Store, Safari, etc.). Only if both fail does the URL stay in-webview.
+   * - Android uses an `ACTION_VIEW` intent for matching hosts.
    * - Matching is host-based (case-insensitive), ignoring the "www." prefix.
+   * - HTTPS hosts do not need `LSApplicationQueriesSchemes`; that Info.plist key is for
+   *   custom schemes like `instagram://`, not `https://instagram.com`.
    * - When `preventDeeplink` is enabled, all external handling is blocked regardless of this list.
    *
    * @example
    * ```ts
-   * ["https://example.com", "https://subdomain.app.io"]
+   * ["https://example.com", "https://instagram.com", "https://apps.apple.com"]
    * ```
    *
    * @since 7.12.0
