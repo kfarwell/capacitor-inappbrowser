@@ -3565,7 +3565,10 @@ extension WKWebViewController: WKNavigationDelegate {
             return
         }
 
-        if url.absoluteString.contains("apps.apple.com") || url.absoluteString.contains("itunes.apple.com") {
+        let appStoreHosts = ["apps.apple.com", "itunes.apple.com"]
+        if !self.preventDeeplink,
+           let appStoreHost = self.normalizeHost(url.host),
+           appStoreHosts.contains(appStoreHost) {
             UIApplication.shared.open(url, options: [:], completionHandler: nil)
             decisionHandler(.cancel)
             return

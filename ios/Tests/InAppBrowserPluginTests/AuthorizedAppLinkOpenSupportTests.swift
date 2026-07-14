@@ -2,8 +2,6 @@ import XCTest
 @testable import InappbrowserPlugin
 
 final class AuthorizedAppLinkOpenSupportTests: XCTestCase {
-    deinit {}
-
     func testUniversalLinkSuccessOpensExternally() {
         XCTAssertEqual(
             AuthorizedAppLinkOpenSupport.resolve(universalLinkOpened: true, systemOpenSucceeded: false),
@@ -27,8 +25,6 @@ final class AuthorizedAppLinkOpenSupportTests: XCTestCase {
 }
 
 final class CustomSchemeOpenSupportTests: XCTestCase {
-    deinit {}
-
     func testOpensWhenCanOpenURLIsTrue() {
         XCTAssertTrue(CustomSchemeOpenSupport.shouldAttemptOpen(scheme: "instagram", canOpenURL: true))
         XCTAssertTrue(CustomSchemeOpenSupport.shouldAttemptOpen(scheme: "mailto", canOpenURL: true))
