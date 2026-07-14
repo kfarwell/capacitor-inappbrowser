@@ -2830,8 +2830,9 @@ fileprivate extension WKWebViewController {
     private func tryOpenCustomScheme(_ url: URL) -> Bool {
         let app = UIApplication.shared
         let shouldEmitCustomSchemeEvent = CustomSchemeInterceptSupport.shouldEmitInterceptEvent(for: url)
+        let canOpen = app.canOpenURL(url)
 
-        if app.canOpenURL(url) {
+        if CustomSchemeOpenSupport.shouldAttemptOpen(scheme: url.scheme, canOpenURL: canOpen) {
             app.open(url, options: [:], completionHandler: nil)
             if shouldEmitCustomSchemeEvent {
                 emit("customSchemeIntercepted", data: ["url": url.absoluteString, "opened": true])
@@ -2847,10 +2848,22 @@ fileprivate extension WKWebViewController {
         return true
     }
 
-    private func tryOpenUniversalLink(_ url: URL, completion: @escaping (Bool) -> Void) {
-        // Only for http(s):// and authorized hosts
-        UIApplication.shared.open(url, options: [.universalLinksOnly: true]) { opened in
-            completion(opened) // true => app opened, false => no associated app
+    /// Prefer Universal Links into the native app; if that fails, hand off to the system
+    /// (App Store, Safari, etc.) before falling back to in-webview loading.
+    private func openAuthorizedAppLink(_ url: URL, completion: @escaping (Bool) -> Void) {
+        UIApplication.shared.open(url, options: [.universalLinksOnly: true]) { universalLinkOpened in
+            if universalLinkOpened {
+                completion(true)
+                return
+            }
+
+            UIApplication.shared.open(url, options: [:]) { systemOpenSucceeded in
+                let outcome = AuthorizedAppLinkOpenSupport.resolve(
+                    universalLinkOpened: false,
+                    systemOpenSucceeded: systemOpenSucceeded
+                )
+                completion(outcome == .openedExternally)
+            }
         }
     }
 
@@ -2954,12 +2967,12 @@ fileprivate extension WKWebViewController {
             return
         }
 
-        // Authorized Universal Link hosts: prefer app via universalLinksOnly
+        // Authorized App Link hosts: Universal Link first, then system open.
         print("[InAppBrowser] Authorized App Links: \(self.authorizedAppLinks)")
         if isUrlAuthorized(url, authorizedLinks: self.authorizedAppLinks) {
-            print("[InAppBrowser] Authorized Universal Link detected \(scheme + host), try to open URLs in external apps")
-            tryOpenUniversalLink(url) { opened in
-                print("[InAppBrowser] Handle as Universal Link: \(opened)")
+            print("[InAppBrowser] Authorized App Link detected \(scheme + host), try to open URLs in external apps")
+            openAuthorizedAppLink(url) { opened in
+                print("[InAppBrowser] Authorized App Link opened externally: \(opened)")
                 completion(opened) // opened => cancel navigation; not opened => allow WebView
             }
             return
@@ -3255,8 +3268,8 @@ extension WKWebViewController: WKUIDelegate {
             isAuthorizedAppLink: isAuthorized
         ) {
         case .openExternalApp:
-            // Prefer the native app / Universal Link. If none handles it, keep browsing in-place.
-            tryOpenUniversalLink(url) { [weak webView] opened in
+            // Prefer native app / Universal Link, then system open (App Store / Safari).
+            openAuthorizedAppLink(url) { [weak webView] opened in
                 if !opened {
                     DispatchQueue.main.async {
                         webView?.load(navigationAction.request)
@@ -3552,7 +3565,7 @@ extension WKWebViewController: WKNavigationDelegate {
             return
         }
 
-        if url.absoluteString.contains("apps.apple.com") {
+        if url.absoluteString.contains("apps.apple.com") || url.absoluteString.contains("itunes.apple.com") {
             UIApplication.shared.open(url, options: [:], completionHandler: nil)
             decisionHandler(.cancel)
             return
