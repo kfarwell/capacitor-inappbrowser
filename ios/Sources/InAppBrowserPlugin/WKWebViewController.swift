@@ -2566,6 +2566,7 @@ public extension WKWebViewController {
             return
         }
 
+        webView.scrollView.alwaysBounceVertical = true
         let refreshControl = UIRefreshControl()
         refreshControl.addTarget(self, action: #selector(handleReloadGesture(_:)), for: .valueChanged)
         webView.scrollView.refreshControl = refreshControl

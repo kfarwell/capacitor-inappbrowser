@@ -4931,6 +4931,9 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
                     if (_options.getPreventDeeplink()) {
                         Log.d("InAppBrowser", "preventDeeplink is true");
                         if (isNotHttpOrHttps) {
+                            if (request.isForMainFrame()) {
+                                stopReloadGesture();
+                            }
                             return true;
                         }
                     }
@@ -4949,6 +4952,9 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
                             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                             context.startActivity(intent);
                             Log.i("InAppBrowser", "Intent started for authorized link: " + url);
+                            if (request.isForMainFrame()) {
+                                stopReloadGesture();
+                            }
                             return true;
                         } catch (ActivityNotFoundException e) {
                             Log.e("InAppBrowser", "No app found to handle this authorized link", e);
@@ -4970,6 +4976,9 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
                             if (shouldEmitCustomSchemeEvent && _options.getCallbacks() != null) {
                                 _options.getCallbacks().customSchemeIntercepted(url, true);
                             }
+                            if (request.isForMainFrame()) {
+                                stopReloadGesture();
+                            }
                             return true;
                         } catch (ActivityNotFoundException e) {
                             Log.w("InAppBrowser", "No handler for external URL: " + url, e);
@@ -4981,6 +4990,9 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
                                 _options.getCallbacks().pageLoadError();
                                 rejectOpenWebViewIfNeeded("No handler available for external URL: " + url);
                             }
+                            if (request.isForMainFrame()) {
+                                stopReloadGesture();
+                            }
                             return true; // prevent WebView from attempting to load the custom scheme
                         } catch (URISyntaxException e) {
                             Log.w("InAppBrowser", "No handler for external URL: " + url, e);
@@ -4988,6 +5000,9 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
                             if (_options.getCallbacks() != null && request.isForMainFrame()) {
                                 _options.getCallbacks().pageLoadError();
                                 rejectOpenWebViewIfNeeded("No handler available for external URL: " + url);
+                            }
+                            if (request.isForMainFrame()) {
+                                stopReloadGesture();
                             }
                             return true; // prevent WebView from attempting to load the custom scheme
                         }
@@ -5003,6 +5018,7 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
                                 _options.getCallbacks().urlChangeEvent(url);
                             }
                             Log.d("InAppBrowser", "Navigation blocked for URL: " + url);
+                            stopReloadGesture();
                             return true; // Block the navigation
                         }
                     }
