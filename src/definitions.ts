@@ -1588,6 +1588,27 @@ export interface InAppBrowserPlugin {
   ): Promise<PluginListenerHandle>;
 
   /**
+   * Will be triggered when a main-frame page load starts (link navigation, reload, etc.).
+   *
+   * @since 8.11.0
+   */
+  addListener(
+    eventName: 'browserPageLoadStart',
+    listenerFunc: (event: { id?: string }) => void,
+  ): Promise<PluginListenerHandle>;
+
+  /**
+   * Will be triggered as a main-frame page load progresses.
+   * `progress` is a value from `0` to `1`.
+   *
+   * @since 8.11.0
+   */
+  addListener(
+    eventName: 'browserPageLoadProgress',
+    listenerFunc: (event: { id?: string; progress: number }) => void,
+  ): Promise<PluginListenerHandle>;
+
+  /**
    * Will be triggered when page load error
    */
   addListener(

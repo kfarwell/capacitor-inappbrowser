@@ -554,6 +554,8 @@ The W3C Payment Request API (used by Google Pay) requires Android WebView 120+. 
 * [`addListener('messageFromWebview', ...)`](#addlistenermessagefromwebview-)
 * [`addListener('screenshotTaken', ...)`](#addlistenerscreenshottaken-)
 * [`addListener('browserPageLoaded', ...)`](#addlistenerbrowserpageloaded-)
+* [`addListener('browserPageLoadStart', ...)`](#addlistenerbrowserpageloadstart-)
+* [`addListener('browserPageLoadProgress', ...)`](#addlistenerbrowserpageloadprogress-)
 * [`addListener('pageLoadError', ...)`](#addlistenerpageloaderror-)
 * [`addListener('customSchemeIntercepted', ...)`](#addlistenercustomschemeintercepted-)
 * [`addListener('downloadCompleted', ...)`](#addlistenerdownloadcompleted-)
@@ -1074,6 +1076,47 @@ Will be triggered when page is loaded
 | **`listenerFunc`** | <code>(event: { id?: string; }) =&gt; void</code> |
 
 **Returns:** <code>Promise&lt;<a href="#pluginlistenerhandle">PluginListenerHandle</a>&gt;</code>
+
+--------------------
+
+
+### addListener('browserPageLoadStart', ...)
+
+```typescript
+addListener(eventName: 'browserPageLoadStart', listenerFunc: (event: { id?: string; }) => void) => Promise<PluginListenerHandle>
+```
+
+Will be triggered when a main-frame page load starts (link navigation, reload, etc.).
+
+| Param              | Type                                              |
+| ------------------ | ------------------------------------------------- |
+| **`eventName`**    | <code>'browserPageLoadStart'</code>               |
+| **`listenerFunc`** | <code>(event: { id?: string; }) =&gt; void</code> |
+
+**Returns:** <code>Promise&lt;<a href="#pluginlistenerhandle">PluginListenerHandle</a>&gt;</code>
+
+**Since:** 8.11.0
+
+--------------------
+
+
+### addListener('browserPageLoadProgress', ...)
+
+```typescript
+addListener(eventName: 'browserPageLoadProgress', listenerFunc: (event: { id?: string; progress: number; }) => void) => Promise<PluginListenerHandle>
+```
+
+Will be triggered as a main-frame page load progresses.
+`progress` is a value from `0` to `1`.
+
+| Param              | Type                                                                |
+| ------------------ | ------------------------------------------------------------------- |
+| **`eventName`**    | <code>'browserPageLoadProgress'</code>                              |
+| **`listenerFunc`** | <code>(event: { id?: string; progress: number; }) =&gt; void</code> |
+
+**Returns:** <code>Promise&lt;<a href="#pluginlistenerhandle">PluginListenerHandle</a>&gt;</code>
+
+**Since:** 8.11.0
 
 --------------------
 

@@ -184,6 +184,16 @@ public class CapgoInAppBrowserPlugin extends Plugin implements WebViewDialog.Per
             }
 
             @Override
+            public void pageLoadStart() {
+                notifyListeners("browserPageLoadStart", new JSObject().put("id", webViewId));
+            }
+
+            @Override
+            public void pageLoadProgress(double progress) {
+                notifyListeners("browserPageLoadProgress", new JSObject().put("id", webViewId).put("progress", progress));
+            }
+
+            @Override
             public void pageLoadError() {
                 notifyListeners("pageLoadError", new JSObject().put("id", webViewId));
             }
