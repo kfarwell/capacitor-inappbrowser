@@ -1249,6 +1249,7 @@ public class CapgoInAppBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
 
         // Read disableOverscroll option (iOS only - controls WebView bounce effect)
         let disableOverscroll = call.getBool("disableOverscroll", false)
+        let enableReloadGesture = call.getBool("enableReloadGesture", false)
 
         let legacyProxyRequests = ProxySchemeRequestSupport.legacyProxyRequestsConfiguration(from: call.options["proxyRequests"])
         let outboundProxyRulesRaw = call.getArray("outboundProxyRules", [])
@@ -1319,6 +1320,8 @@ public class CapgoInAppBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
                 authorizedAppLinks: authorizedAppLinks,
                 openBlankTargetInWebView: openBlankTargetInWebView
             )
+            webViewController.enableReloadGesture = enableReloadGesture
+            webViewController.disableOverscroll = disableOverscroll
             webViewController.initWebview(isInspectable: isInspectable)
             self.webViewController = webViewController
 
@@ -1348,8 +1351,6 @@ public class CapgoInAppBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
                 webViewController.customY = CGFloat(yPos)
             }
 
-            // Set disableOverscroll option
-            webViewController.disableOverscroll = disableOverscroll
             webViewController.handleDownloads = handleDownloads
 
             // Set native navigation gestures before view loads

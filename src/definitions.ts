@@ -883,6 +883,21 @@ export interface OpenWebViewOptions {
    * Test URL: https://capgo.app
    */
   activeNativeNavigationForWebview?: boolean;
+
+  /**
+   * Enable pull-to-refresh (overscroll from top) to reload the current page.
+   * - iOS: Uses UIRefreshControl on the WebView scroll view
+   * - Android: Uses SwipeRefreshLayout around the WebView
+   *
+   * On iOS, this requires overscroll bounce. If `disableOverscroll` is `true`,
+   * the reload gesture will not work.
+   *
+   * @since 8.10.8
+   * @default false
+   * @example
+   * enableReloadGesture: true
+   */
+  enableReloadGesture?: boolean;
   /**
    * Disable the possibility to go back on native application,
    * useful to force user to stay on the webview, Android only

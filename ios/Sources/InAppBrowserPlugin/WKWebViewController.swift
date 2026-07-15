@@ -471,6 +471,7 @@ open class WKWebViewController: UIViewController, WKScriptMessageHandler {
     var blockedHosts: [String] = []
     var authorizedAppLinks: [String] = []
     var activeNativeNavigationForWebview: Bool = true
+    var enableReloadGesture: Bool = false
     var disableOverscroll: Bool = false
     var proxyRequests: Bool = false
     var proxySchemeHandler: ProxySchemeHandler?
@@ -2212,6 +2213,7 @@ open class WKWebViewController: UIViewController, WKScriptMessageHandler {
 
         // Disable bounce effect by setting scrollView.bounces to false when disableOverscroll is true
         webView.scrollView.bounces = !self.disableOverscroll
+        configureReloadGesture(for: webView)
         configureWebViewScrollViewSafeArea(webView)
 
         webView.addObserver(self, forKeyPath: estimatedProgressKeyPath, options: .new, context: nil)
@@ -2294,6 +2296,7 @@ open class WKWebViewController: UIViewController, WKScriptMessageHandler {
         configuration.userContentController = WKUserContentController()
         self.initialWebConfiguration = configuration
         self.persistWebViewData = parent.persistWebViewData
+        self.enableReloadGesture = parent.enableReloadGesture
         self.disableOverscroll = parent.disableOverscroll
         self.proxyRequests = parent.proxyRequests
         self.proxySchemeHandler = proxySchemeHandler
@@ -2556,6 +2559,31 @@ public extension WKWebViewController {
 
     func updateNavigationGestures() {
         self.webView?.allowsBackForwardNavigationGestures = self.activeNativeNavigationForWebview
+    }
+
+    private func configureReloadGesture(for webView: WKWebView) {
+        if let existing = webView.scrollView.refreshControl {
+            existing.endRefreshing()
+            existing.removeTarget(nil, action: nil, for: .allEvents)
+            webView.scrollView.refreshControl = nil
+        }
+
+        guard enableReloadGesture, !disableOverscroll else {
+            return
+        }
+
+        webView.scrollView.alwaysBounceVertical = true
+        let refreshControl = UIRefreshControl()
+        refreshControl.addTarget(self, action: #selector(handleReloadGesture(_:)), for: .valueChanged)
+        webView.scrollView.refreshControl = refreshControl
+    }
+
+    @objc private func handleReloadGesture(_ sender: UIRefreshControl) {
+        reload()
+    }
+
+    private func stopReloadGesture() {
+        webView?.scrollView.refreshControl?.endRefreshing()
     }
 
     func cleanupWebView() {
@@ -3508,6 +3536,7 @@ extension WKWebViewController: WKNavigationDelegate {
         lastInjectedSafeAreaInsets = nil
         syncWebViewSafeAreaLayout()
         emit("browserPageLoaded")
+        stopReloadGesture()
     }
 
     public func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
@@ -3517,6 +3546,7 @@ extension WKWebViewController: WKNavigationDelegate {
             self.url = url
             delegate?.webViewController?(self, didFail: url, withError: error)
         }
+        stopReloadGesture()
         emit("pageLoadError")
     }
 
@@ -3527,6 +3557,7 @@ extension WKWebViewController: WKNavigationDelegate {
             self.url = url
             delegate?.webViewController?(self, didFail: url, withError: error)
         }
+        stopReloadGesture()
         emit("pageLoadError")
     }
 
