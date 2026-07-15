@@ -1217,6 +1217,7 @@ public class CapgoInAppBrowserPlugin extends Plugin implements WebViewDialog.Per
         }
 
         options.setActiveNativeNavigationForWebview(Boolean.TRUE.equals(call.getBoolean("activeNativeNavigationForWebview", false)));
+        options.setEnableReloadGesture(call.getBoolean("enableReloadGesture", true));
         options.setDisableGoBackOnNativeApplication(Boolean.TRUE.equals(call.getBoolean("disableGoBackOnNativeApplication", false)));
         options.setPresentAfterPageLoad(Boolean.TRUE.equals(call.getBoolean("isPresentAfterPageLoad", false)));
         options.setPluginCall(call);

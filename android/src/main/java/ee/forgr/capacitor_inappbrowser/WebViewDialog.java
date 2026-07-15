@@ -76,6 +76,7 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import androidx.webkit.WebMessageCompat;
 import androidx.webkit.WebSettingsCompat;
 import androidx.webkit.WebViewCompat;
@@ -328,6 +329,7 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
         }
     }
 
+    private SwipeRefreshLayout swipeRefreshLayout;
     private WebView _webView;
     private Toolbar _toolbar;
     private Options _options = null;
@@ -2171,6 +2173,14 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
 
         this._webView = findViewById(R.id.browser_view);
 
+        this.swipeRefreshLayout = findViewById(R.id.content_browser_layout);
+        if (this.swipeRefreshLayout != null) {
+            boolean enableReloadGesture = _options != null && _options.getEnableReloadGesture();
+            this.swipeRefreshLayout.setEnabled(enableReloadGesture);
+            this.swipeRefreshLayout.setOnRefreshListener(() -> reload());
+            this.swipeRefreshLayout.setOnChildScrollUpCallback((parent, child) -> _webView != null && _webView.canScrollVertically(-1));
+        }
+
         // Apply insets to fix edge-to-edge issues on Android 15+
         applyInsets();
 
@@ -3801,6 +3811,7 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
     public void reload() {
         if (_webView == null) {
             Log.w("InAppBrowser", "Cannot reload - WebView is null");
+            stopReloadGesture();
             return;
         }
 
@@ -3820,9 +3831,17 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
                 Log.d("InAppBrowser", "Loading initial URL: " + _options.getUrl());
             } else {
                 Log.w("InAppBrowser", "Cannot reload - no valid URL available");
+                stopReloadGesture();
             }
         } catch (Exception e) {
             Log.e("InAppBrowser", "Error during reload: " + e.getMessage());
+            stopReloadGesture();
+        }
+    }
+
+    private void stopReloadGesture() {
+        if (swipeRefreshLayout != null && swipeRefreshLayout.isRefreshing()) {
+            swipeRefreshLayout.setRefreshing(false);
         }
     }
 
@@ -5520,6 +5539,7 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
                     updateNavigationButtonsState();
 
                     _options.getCallbacks().pageLoaded();
+                    stopReloadGesture();
                     injectJavaScriptInterface();
 
                     // Inject Google Pay polyfills if enabled
@@ -5537,6 +5557,7 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
                     if (request == null || !request.isForMainFrame()) {
                         return;
                     }
+                    stopReloadGesture();
                     if (_options.getCallbacks() != null) {
                         _options.getCallbacks().pageLoadError();
                     }

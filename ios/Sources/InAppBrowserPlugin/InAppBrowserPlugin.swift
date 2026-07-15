@@ -110,7 +110,6 @@ enum CustomSchemeOpenSupport {
     }
 }
 
-
 protocol ProxyRequestLocating {
     func hasPendingProxyRequest(_ requestId: String) -> Bool
 }
@@ -148,7 +147,6 @@ enum ProxyResponseRoutingSupport {
         return .matched(matchedHandler)
     }
 }
-
 
 enum StatusBarBackgroundLayoutSupport {
     enum Placement: Equatable {
@@ -1291,6 +1289,7 @@ public class CapgoInAppBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
 
         // Read disableOverscroll option (iOS only - controls WebView bounce effect)
         let disableOverscroll = call.getBool("disableOverscroll", false)
+        let enableReloadGesture = call.getBool("enableReloadGesture", true)
 
         let legacyProxyRequests = ProxySchemeRequestSupport.legacyProxyRequestsConfiguration(from: call.options["proxyRequests"])
         let outboundProxyRulesRaw = call.getArray("outboundProxyRules", [])
@@ -1391,6 +1390,7 @@ public class CapgoInAppBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
             }
 
             // Set disableOverscroll option
+            webViewController.enableReloadGesture = enableReloadGesture
             webViewController.disableOverscroll = disableOverscroll
             webViewController.handleDownloads = handleDownloads
 
@@ -2117,7 +2117,6 @@ public class CapgoInAppBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
-
     /// Keep PassThroughView clear so custom y-offsets show the host app behind the gap.
     private func applyBlankToolbarBackground(_ color: UIColor, to navigationController: UINavigationController?) {
         guard let navigationController else { return }
@@ -2414,7 +2413,6 @@ public class CapgoInAppBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
             call.resolve()
         }
     }
-
 
     private func showPrivacyScreen() {
         if privacyScreen == nil {

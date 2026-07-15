@@ -158,6 +158,7 @@ public class Options {
     private String shareSubject;
     private boolean disableGoBackOnNativeApplication;
     private boolean activeNativeNavigationForWebview;
+    private boolean enableReloadGesture = true;
     private boolean isPresentAfterPageLoad;
     private WebViewCallbacks callbacks;
     private PluginCall pluginCall;
@@ -539,6 +540,14 @@ public class Options {
         this.activeNativeNavigationForWebview = activeNativeNavigationForWebview;
     }
 
+    public boolean getEnableReloadGesture() {
+        return enableReloadGesture;
+    }
+
+    public void setEnableReloadGesture(boolean enableReloadGesture) {
+        this.enableReloadGesture = enableReloadGesture;
+    }
+
     public boolean getDisableGoBackOnNativeApplication() {
         return disableGoBackOnNativeApplication;
     }
@@ -763,6 +772,7 @@ public class Options {
         copy.setShareSubject(shareSubject);
         copy.setDisableGoBackOnNativeApplication(disableGoBackOnNativeApplication);
         copy.setActiveNativeNavigationForWebview(activeNativeNavigationForWebview);
+        copy.setEnableReloadGesture(enableReloadGesture);
         copy.setPresentAfterPageLoad(false);
         copy.setVisibleTitle(VisibleTitle);
         copy.setToolbarColor(ToolbarColor);
