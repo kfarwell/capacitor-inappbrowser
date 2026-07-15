@@ -279,6 +279,7 @@ public class CapgoInAppBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
     private var hiddenWebViewContainers: [ObjectIdentifier: UIView] = [:]
     private var closeModalTitle: String?
     private var layeredWebViewIds = Set<String>()
+    private var framedOverlayWebViewIds = Set<String>()
     private var transparentHostWebViewIds = Set<String>()
     private var hasStoredHostWebViewAppearance = false
     private var originalHostWebViewBackgroundColor: UIColor?
@@ -339,6 +340,7 @@ public class CapgoInAppBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     private func unregisterWebView(id: String) {
+        detachFramedOverlayWebView(id: id)
         detachLayeredWebView(id: id)
         if let webView = webViewControllers[id]?.capableWebView {
             cleanupHiddenWebViewContainer(for: webView)
@@ -606,7 +608,20 @@ public class CapgoInAppBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
             return true
         }
 
+        if let resolvedId,
+           let webViewController = webViewControllers[resolvedId],
+           webViewController.shouldPresentAsFramedOverlay {
+            dismissActiveKeyboard()
+            if presentNavigationControllerAsFramedOverlay(id: resolvedId) {
+                self.currentPluginCall?.resolve()
+                return true
+            }
+            self.currentPluginCall?.reject("Failed to present webview")
+            return false
+        }
+
         if let resolvedId {
+            detachFramedOverlayWebView(id: resolvedId)
             detachLayeredWebView(id: resolvedId)
         }
         dismissActiveKeyboard()
@@ -619,61 +634,6 @@ public class CapgoInAppBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
             }
         }
         return true
-    }
-
-    private func targetFrame(for webViewController: WKWebViewController, in hostWebView: UIView) -> CGRect {
-        return CustomWebViewFrameSupport.resolvedFrame(
-            width: webViewController.customWidth,
-            height: webViewController.customHeight,
-            x: webViewController.customX,
-            y: webViewController.customY,
-            fallbackSize: hostWebView.bounds.size
-        ) ?? hostWebView.bounds
-    }
-
-    @discardableResult
-    private func sendNavigationControllerToBack(id: String, transparentBackground: Bool) -> Bool {
-        guard let navigationController = navigationControllers[id],
-              let webViewController = webViewControllers[id],
-              let hostWebView = self.bridge?.webView else {
-            return false
-        }
-
-        if let webView = webViewController.capableWebView, webView.superview !== webViewController.view {
-            cleanupHiddenWebViewContainer(for: webView)
-            attachWebViewToController(webViewController, webView: webView)
-        }
-
-        dismissActiveKeyboard()
-        navigationController.view.removeFromSuperview()
-        if transparentBackground {
-            makeHostWebViewTransparent(for: id)
-        } else {
-            restoreHostWebViewBackgroundIfNeeded(for: id)
-        }
-        navigationController.view.frame = targetFrame(for: webViewController, in: hostWebView)
-        navigationController.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        navigationController.view.isUserInteractionEnabled = false
-        hostWebView.addSubview(navigationController.view)
-        hostWebView.sendSubviewToBack(navigationController.view)
-        navigationController.view.setNeedsLayout()
-        navigationController.view.layoutIfNeeded()
-
-        layeredWebViewIds.insert(id)
-        webViewController.isLayeredBehind = true
-        webViewController.transparentHostBackground = transparentBackground
-        return true
-    }
-
-    private func detachLayeredWebView(id: String) {
-        if let navigationController = navigationControllers[id] {
-            if navigationController.view.superview === self.bridge?.webView {
-                navigationController.view.removeFromSuperview()
-            }
-            navigationController.view.isUserInteractionEnabled = true
-        }
-        layeredWebViewIds.remove(id)
-        restoreHostWebViewBackgroundIfNeeded(for: id)
     }
 
     private func storeSubviewBackgrounds(from view: UIView) {
@@ -1603,42 +1563,9 @@ public class CapgoInAppBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
             }
             webViewController.updateTitleAppearance()
 
-            // Configure modal presentation for touch passthrough if custom dimensions are set
-            if (width != nil || height != nil) && !toBack {
-                self.navigationWebViewController?.modalPresentationStyle = .overFullScreen
-
-                // Create a pass-through container
-                let containerView = PassThroughView()
-                containerView.backgroundColor = .clear
-                containerView.frame = UIScreen.main.bounds
-                containerView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-                containerView.passthroughView = self.bridge?.webView
-
-                let targetFrame = CustomWebViewFrameSupport.resolvedFrame(
-                    width: width.map { CGFloat($0) },
-                    height: height.map { CGFloat($0) },
-                    x: xPos.map { CGFloat($0) },
-                    y: yPos.map { CGFloat($0) },
-                    fallbackSize: UIScreen.main.bounds.size
-                )
-                containerView.targetFrame = targetFrame
-
-                // Replace the navigation controller's view with our pass-through container
-                if let navController = self.navigationWebViewController,
-                   let originalView = navController.view {
-                    navController.view = containerView
-                    containerView.addSubview(originalView)
-                    containerView.framedContentView = originalView
-                    originalView.translatesAutoresizingMaskIntoConstraints = true
-                    originalView.autoresizingMask = []
-                    if let targetFrame {
-                        originalView.frame = targetFrame
-                    }
-                }
-            } else {
-                self.navigationWebViewController?.modalPresentationStyle = .overCurrentContext
-            }
-
+            // Custom width/height front browsers are attached as framed child overlays in
+            // presentView (matching Android window sizing) so host taps outside the frame work.
+            self.navigationWebViewController?.modalPresentationStyle = .overCurrentContext
             self.navigationWebViewController?.modalTransitionStyle = .crossDissolve
             if toolbarType == "blank" {
                 self.navigationWebViewController?.navigationBar.isHidden = true
@@ -1765,6 +1692,7 @@ public class CapgoInAppBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
 
             if hidden {
                 if let resolvedId {
+                    self.detachFramedOverlayWebView(id: resolvedId)
                     self.detachLayeredWebView(id: resolvedId)
                 }
                 if !self.attachWebViewToWindow(webView) {
@@ -1793,9 +1721,22 @@ public class CapgoInAppBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
                 if let navController = navigationController {
                     if let resolvedId {
                         self.setActiveWebView(id: resolvedId, webView: webViewController, navigationController: navController)
-                    }
-
-                    if navController.presentingViewController == nil {
+                        if navController.presentingViewController == nil && !self.framedOverlayWebViewIds.contains(resolvedId) {
+                            self.revealNavigationController(
+                                id: resolvedId,
+                                navigationController: navController,
+                                webViewController: webViewController,
+                                animated: true
+                            ) { presented in
+                                if presented {
+                                    call?.resolve()
+                                } else {
+                                    call?.reject("Failed to present webview")
+                                }
+                            }
+                            return
+                        }
+                    } else if navController.presentingViewController == nil {
                         let presenter = self.bridge?.viewController?.presentedViewController ?? self.bridge?.viewController
                         self.presentNavigationControllerSafely(navController, from: presenter, animated: true) { presented in
                             if presented {
@@ -1873,9 +1814,13 @@ public class CapgoInAppBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
                 self.attachWebViewToController(webViewController, webView: webView)
             }
             self.setActiveWebView(id: resolvedId, webView: webViewController, navigationController: navigationController)
-            if navigationController.presentingViewController == nil {
-                let presenter = self.bridge?.viewController?.presentedViewController ?? self.bridge?.viewController
-                self.presentNavigationControllerSafely(navigationController, from: presenter, animated: isAnimated) { presented in
+            if navigationController.presentingViewController == nil && !self.framedOverlayWebViewIds.contains(resolvedId) {
+                self.revealNavigationController(
+                    id: resolvedId,
+                    navigationController: navigationController,
+                    webViewController: webViewController,
+                    animated: isAnimated
+                ) { presented in
                     if presented {
                         call.resolve()
                     } else {
@@ -1883,6 +1828,12 @@ public class CapgoInAppBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
                     }
                 }
                 return
+            }
+            if webViewController.shouldPresentAsFramedOverlay {
+                guard self.presentNavigationControllerAsFramedOverlay(id: resolvedId) else {
+                    call.reject("Failed to present webview")
+                    return
+                }
             }
             call.resolve()
         }
@@ -2377,9 +2328,12 @@ public class CapgoInAppBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
                let webViewController = self.webViewControllers[targetId],
                let navigationController = self.navigationControllers[targetId] {
                 let currentUrl = webViewController.url?.absoluteString ?? ""
+                let wasPresented = navigationController.presentingViewController != nil
                 webViewController.cleanupWebView()
                 self.handleWebViewDidClose(id: targetId, url: currentUrl)
-                navigationController.dismiss(animated: isAnimated, completion: nil)
+                if wasPresented {
+                    navigationController.dismiss(animated: isAnimated, completion: nil)
+                }
                 call.resolve()
                 return
             }
@@ -2617,3 +2571,139 @@ extension CapgoInAppBrowserPlugin: SFSafariViewControllerDelegate {
         }
     }
 }
+
+
+extension CapgoInAppBrowserPlugin {
+    private func targetFrame(for webViewController: WKWebViewController, in hostWebView: UIView) -> CGRect {
+        return CustomWebViewFrameSupport.resolvedFrame(
+            width: webViewController.customWidth,
+            height: webViewController.customHeight,
+            x: webViewController.customX,
+            y: webViewController.customY,
+            fallbackSize: hostWebView.bounds.size
+        ) ?? hostWebView.bounds
+    }
+
+    @discardableResult
+    private func sendNavigationControllerToBack(id: String, transparentBackground: Bool) -> Bool {
+        guard let navigationController = navigationControllers[id],
+              let webViewController = webViewControllers[id],
+              let hostWebView = self.bridge?.webView else {
+            return false
+        }
+
+        if let webView = webViewController.capableWebView, webView.superview !== webViewController.view {
+            cleanupHiddenWebViewContainer(for: webView)
+            attachWebViewToController(webViewController, webView: webView)
+        }
+
+        dismissActiveKeyboard()
+        detachFramedOverlayWebView(id: id)
+        navigationController.view.removeFromSuperview()
+        if transparentBackground {
+            makeHostWebViewTransparent(for: id)
+        } else {
+            restoreHostWebViewBackgroundIfNeeded(for: id)
+        }
+        navigationController.view.frame = targetFrame(for: webViewController, in: hostWebView)
+        navigationController.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        navigationController.view.isUserInteractionEnabled = false
+        hostWebView.addSubview(navigationController.view)
+        hostWebView.sendSubviewToBack(navigationController.view)
+        navigationController.view.setNeedsLayout()
+        navigationController.view.layoutIfNeeded()
+
+        layeredWebViewIds.insert(id)
+        webViewController.isLayeredBehind = true
+        webViewController.transparentHostBackground = transparentBackground
+        return true
+    }
+
+    private func detachLayeredWebView(id: String) {
+        if let navigationController = navigationControllers[id] {
+            if navigationController.view.superview === self.bridge?.webView {
+                navigationController.view.removeFromSuperview()
+            }
+            navigationController.view.isUserInteractionEnabled = true
+        }
+        layeredWebViewIds.remove(id)
+        restoreHostWebViewBackgroundIfNeeded(for: id)
+    }
+
+    /// Front custom-dimension browsers are child VCs with an exact frame (Android-style).
+    /// Full-screen modal + PassThroughView still leaves UITransitionView eating host taps.
+    @discardableResult
+    private func presentNavigationControllerAsFramedOverlay(id: String) -> Bool {
+        guard let navigationController = navigationControllers[id],
+              let webViewController = webViewControllers[id],
+              let parent = self.bridge?.viewController else {
+            return false
+        }
+
+        dismissNavigationControllerIfPresented(navigationController)
+        detachLayeredWebView(id: id)
+
+        let frame = targetFrame(for: webViewController, in: parent.view)
+
+        if navigationController.parent !== parent {
+            if navigationController.parent != nil {
+                navigationController.willMove(toParent: nil)
+                navigationController.view.removeFromSuperview()
+                navigationController.removeFromParent()
+            }
+            parent.addChild(navigationController)
+            parent.view.addSubview(navigationController.view)
+            navigationController.didMove(toParent: parent)
+        } else if navigationController.view.superview !== parent.view {
+            parent.view.addSubview(navigationController.view)
+        }
+
+        navigationController.view.frame = frame
+        navigationController.view.autoresizingMask = []
+        navigationController.view.isUserInteractionEnabled = true
+        parent.view.bringSubviewToFront(navigationController.view)
+        navigationController.view.setNeedsLayout()
+        navigationController.view.layoutIfNeeded()
+        webViewController.applyCustomDimensions()
+
+        framedOverlayWebViewIds.insert(id)
+        webViewController.isLayeredBehind = false
+        return true
+    }
+
+    private func detachFramedOverlayWebView(id: String) {
+        guard let navigationController = navigationControllers[id] else {
+            framedOverlayWebViewIds.remove(id)
+            return
+        }
+
+        if navigationController.parent != nil {
+            navigationController.willMove(toParent: nil)
+            navigationController.view.removeFromSuperview()
+            navigationController.removeFromParent()
+        } else if framedOverlayWebViewIds.contains(id) {
+            navigationController.view.removeFromSuperview()
+        }
+
+        framedOverlayWebViewIds.remove(id)
+    }
+
+    private func revealNavigationController(
+        id: String,
+        navigationController: UINavigationController,
+        webViewController: WKWebViewController,
+        animated: Bool,
+        completion: ((Bool) -> Void)? = nil
+    ) {
+        if webViewController.shouldPresentAsFramedOverlay {
+            completion?(presentNavigationControllerAsFramedOverlay(id: id))
+            return
+        }
+
+        detachFramedOverlayWebView(id: id)
+        let presenter = self.bridge?.viewController?.presentedViewController ?? self.bridge?.viewController
+        presentNavigationControllerSafely(navigationController, from: presenter, animated: animated, completion: completion)
+    }
+
+}
+

@@ -490,6 +490,11 @@ open class WKWebViewController: UIViewController, WKScriptMessageHandler {
     var customX: CGFloat?
     var customY: CGFloat?
 
+    /// Front (non-toBack) browsers with a custom height use a framed child overlay.
+    var shouldPresentAsFramedOverlay: Bool {
+        !isLayeredBehind && customHeight != nil
+    }
+
     internal var preShowSemaphore: DispatchSemaphore?
     internal var preShowError: String?
     private var isWebViewInitialized = false
@@ -3659,14 +3664,18 @@ extension WKWebViewController: WKNavigationDelegate {
 
     /// Apply custom dimensions to the view if specified
     func applyCustomDimensions() {
-        guard let navigationController = navigationController,
-              let targetFrame = CustomWebViewFrameSupport.resolvedFrame(
-                width: customWidth,
-                height: customHeight,
-                x: customX,
-                y: customY,
-                fallbackSize: UIScreen.main.bounds.size
-              ) else {
+        guard let navigationController = navigationController else {
+            return
+        }
+
+        let fallbackSize = navigationController.view.superview?.bounds.size ?? UIScreen.main.bounds.size
+        guard let targetFrame = CustomWebViewFrameSupport.resolvedFrame(
+            width: customWidth,
+            height: customHeight,
+            x: customX,
+            y: customY,
+            fallbackSize: fallbackSize
+        ) else {
             return
         }
 
@@ -3827,7 +3836,6 @@ class PassThroughView: UIView {
         }
     }
     weak var framedContentView: UIView?
-    weak var passthroughView: UIView?
 
     override func layoutSubviews() {
         super.layoutSubviews()
@@ -3840,12 +3848,11 @@ class PassThroughView: UIView {
     }
 
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        // Outside the browser frame: decline the hit. Callers that still use a full-screen
+        // PassThroughView depend on the parent hierarchy continuing hit-testing; framed
+        // front overlays avoid modal UITransitionView entirely instead.
         if let frame = targetFrame, !frame.contains(point) {
-            guard let passthroughView else {
-                return nil
-            }
-            let convertedPoint = convert(point, to: passthroughView)
-            return passthroughView.hitTest(convertedPoint, with: event)
+            return nil
         }
 
         return super.hitTest(point, with: event)
