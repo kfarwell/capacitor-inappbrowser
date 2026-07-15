@@ -2431,6 +2431,7 @@ open class WKWebViewController: UIViewController, WKScriptMessageHandler {
                 }
                 self.progressView?.alpha = 1
                 self.progressView?.setProgress(Float(estimatedProgress), animated: true)
+                self.emit("browserPageLoadProgress", data: ["progress": estimatedProgress])
 
                 if estimatedProgress >= 1.0 {
                     UIView.animate(withDuration: 0.3, delay: 0.3, options: .curveEaseOut, animations: {
@@ -3451,6 +3452,7 @@ extension WKWebViewController: WKNavigationDelegate {
             self.url = urlValue
             delegate?.webViewController?(self, didStart: urlValue)
         }
+        emit("browserPageLoadStart")
     }
     public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         if !didpageInit && self.capBrowserPlugin?.isPresentAfterPageLoad == true {

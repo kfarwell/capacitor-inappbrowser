@@ -2625,6 +2625,10 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
                 public void onProgressChanged(WebView view, int newProgress) {
                     super.onProgressChanged(view, newProgress);
 
+                    if (_options.getCallbacks() != null) {
+                        _options.getCallbacks().pageLoadProgress(newProgress / 100.0);
+                    }
+
                     // When the page is almost loaded, inject our date picker customization
                     // Only if materialPicker option is enabled
                     if (newProgress > 75 && !datePickerInjected && _options.getMaterialPicker()) {
@@ -5430,6 +5434,9 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
                     super.onPageStarted(view, url, favicon);
                     if (view == null || _webView == null) {
                         return;
+                    }
+                    if (_options.getCallbacks() != null) {
+                        _options.getCallbacks().pageLoadStart();
                     }
                     if (ProxyRequestSupport.shouldInjectBridge(_options) && proxyBridgeScript != null && proxyAccessToken != null) {
                         String preparedProxyBridgeScript = prepareProxyBridgeScript();

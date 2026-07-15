@@ -11,6 +11,10 @@ public interface WebViewCallbacks {
 
     public void pageLoaded();
 
+    public void pageLoadStart();
+
+    public void pageLoadProgress(double progress);
+
     public void pageLoadError();
 
     public void customSchemeIntercepted(String url, boolean opened);
