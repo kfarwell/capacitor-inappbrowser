@@ -1289,7 +1289,7 @@ public class CapgoInAppBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
 
         // Read disableOverscroll option (iOS only - controls WebView bounce effect)
         let disableOverscroll = call.getBool("disableOverscroll", false)
-        let enableReloadGesture = call.getBool("enableReloadGesture", true)
+        let enableReloadGesture = call.getBool("enableReloadGesture", false)
 
         let legacyProxyRequests = ProxySchemeRequestSupport.legacyProxyRequestsConfiguration(from: call.options["proxyRequests"])
         let outboundProxyRulesRaw = call.getArray("outboundProxyRules", [])

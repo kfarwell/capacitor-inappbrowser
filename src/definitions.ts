@@ -893,7 +893,7 @@ export interface OpenWebViewOptions {
    * the reload gesture will not work.
    *
    * @since 8.10.8
-   * @default true
+   * @default false
    * @example
    * enableReloadGesture: true
    */

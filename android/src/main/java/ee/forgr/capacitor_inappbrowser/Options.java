@@ -158,7 +158,7 @@ public class Options {
     private String shareSubject;
     private boolean disableGoBackOnNativeApplication;
     private boolean activeNativeNavigationForWebview;
-    private boolean enableReloadGesture = true;
+    private boolean enableReloadGesture = false;
     private boolean isPresentAfterPageLoad;
     private WebViewCallbacks callbacks;
     private PluginCall pluginCall;

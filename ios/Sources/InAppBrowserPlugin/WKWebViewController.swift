@@ -471,7 +471,7 @@ open class WKWebViewController: UIViewController, WKScriptMessageHandler {
     var blockedHosts: [String] = []
     var authorizedAppLinks: [String] = []
     var activeNativeNavigationForWebview: Bool = true
-    var enableReloadGesture: Bool = true
+    var enableReloadGesture: Bool = false
     var disableOverscroll: Bool = false
     var proxyRequests: Bool = false
     var proxySchemeHandler: ProxySchemeHandler?
