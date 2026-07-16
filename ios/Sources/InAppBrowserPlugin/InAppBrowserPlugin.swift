@@ -611,7 +611,7 @@ public class CapgoInAppBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
            webViewController.shouldPresentAsFramedOverlay {
             dismissActiveKeyboard()
             if presentNavigationControllerAsFramedOverlay(id: resolvedId) {
-                self.currentPluginCall?.resolve()
+                // openWebView resolves with the webView id; do not resolve here.
                 return true
             }
             self.currentPluginCall?.reject("Failed to present webview")
@@ -625,9 +625,9 @@ public class CapgoInAppBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
         dismissActiveKeyboard()
         let presenter = self.bridge?.viewController?.presentedViewController ?? self.bridge?.viewController
         presentNavigationControllerSafely(navigationController, from: presenter, animated: isAnimated) { presented in
-            if presented {
-                self.currentPluginCall?.resolve()
-            } else {
+            if !presented {
+                // openWebView already resolves with the webView id on success.
+                // Resolving here caused a double-resolve (empty, then with id). See #631.
                 self.currentPluginCall?.reject("Failed to present webview")
             }
         }
@@ -1619,6 +1619,10 @@ public class CapgoInAppBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
                 }
             }
             call.resolve(["id": webViewId])
+            // Only clear if this call still owns the slot (overlapping openWebView races).
+            if self.currentPluginCall === call {
+                self.currentPluginCall = nil
+            }
         }
     }
 
