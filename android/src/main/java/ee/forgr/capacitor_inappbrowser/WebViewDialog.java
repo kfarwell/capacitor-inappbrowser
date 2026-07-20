@@ -2763,7 +2763,7 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
             if (loadHtmlDataUrlIfNeeded(this._options.getUrl())) {
                 // Inline HTML loaded from data:text/html;base64 URL.
             } else if (shouldBootstrapInitialLegacyProxyLoad()) {
-                loadInitialLegacyProxyContent(buildRequestHeadersForNativeProxy(requestHeaders), httpMethod, httpBody);
+                loadInitialLegacyProxyContent(requestHeaders, buildRequestHeadersForNativeProxy(requestHeaders), httpMethod, httpBody);
             } else if (supportsRequestBody(httpMethod) && httpBody != null) {
                 // For POST/PUT/PATCH requests with body
                 // Note: Android WebView has limitations with custom headers on POST
@@ -6148,9 +6148,16 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
         _webView.loadUrl(_options.getUrl(), headers);
     }
 
-    private void loadInitialLegacyProxyContent(Map<String, String> requestHeaders, String httpMethod, String httpBody) {
+    private void loadInitialLegacyProxyContent(
+        Map<String, String> directRequestHeaders,
+        Map<String, String> proxyRequestHeaders,
+        String httpMethod,
+        String httpBody
+    ) {
         final String initialUrl = _options.getUrl();
-        final Map<String, String> initialHeaders = requestHeaders != null ? new HashMap<>(requestHeaders) : new HashMap<>();
+        final Map<String, String> initialDirectHeaders =
+            directRequestHeaders != null ? new HashMap<>(directRequestHeaders) : new HashMap<>();
+        final Map<String, String> initialProxyHeaders = proxyRequestHeaders != null ? new HashMap<>(proxyRequestHeaders) : new HashMap<>();
         final String initialMethod = httpMethod != null && !httpMethod.isBlank() ? httpMethod : "GET";
         final String initialBody =
             supportsRequestBody(initialMethod) && httpBody != null
@@ -6161,7 +6168,7 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
             NativeRequestContext requestContext = new NativeRequestContext(
                 initialUrl,
                 initialMethod,
-                initialHeaders,
+                initialProxyHeaders,
                 initialBody,
                 true,
                 "same-origin"
@@ -6179,7 +6186,7 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
                     if (_webView == null) {
                         return;
                     }
-                    _webView.post(() -> loadInitialUrlDirect(initialHeaders, initialMethod, httpBody));
+                    _webView.post(() -> loadInitialUrlDirect(initialDirectHeaders, initialMethod, httpBody));
                     return;
                 }
 
