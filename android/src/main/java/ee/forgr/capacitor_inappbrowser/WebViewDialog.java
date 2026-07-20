@@ -2763,7 +2763,7 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
             if (loadHtmlDataUrlIfNeeded(this._options.getUrl())) {
                 // Inline HTML loaded from data:text/html;base64 URL.
             } else if (shouldBootstrapInitialLegacyProxyLoad()) {
-                loadInitialLegacyProxyContent(requestHeaders, httpMethod, httpBody);
+                loadInitialLegacyProxyContent(buildRequestHeadersForNativeProxy(requestHeaders), httpMethod, httpBody);
             } else if (supportsRequestBody(httpMethod) && httpBody != null) {
                 // For POST/PUT/PATCH requests with body
                 // Note: Android WebView has limitations with custom headers on POST
@@ -3898,6 +3898,28 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
         }
     }
 
+    private String resolveWebViewUserAgent() {
+        if (_options == null) {
+            return null;
+        }
+
+        if (!TextUtils.isEmpty(_options.getCustomUserAgent())) {
+            return _options.getCustomUserAgent();
+        }
+
+        if (_options.getHeaders() != null) {
+            Iterator<String> keys = _options.getHeaders().keys();
+            while (keys.hasNext()) {
+                String key = keys.next();
+                if (TextUtils.equals(key.toLowerCase(), "user-agent")) {
+                    return _options.getHeaders().getString(key);
+                }
+            }
+        }
+
+        return null;
+    }
+
     private Map<String, String> buildRequestHeadersExcludingUserAgent() {
         Map<String, String> requestHeaders = new HashMap<>();
         if (_options == null || _options.getHeaders() == null) {
@@ -3916,25 +3938,23 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
     }
 
     private void applyWebViewUserAgent() {
-        if (_webView == null || _options == null) {
+        if (_webView == null) {
             return;
         }
 
-        if (!TextUtils.isEmpty(_options.getCustomUserAgent())) {
-            _webView.getSettings().setUserAgentString(_options.getCustomUserAgent());
-            return;
+        String userAgent = resolveWebViewUserAgent();
+        if (!TextUtils.isEmpty(userAgent)) {
+            _webView.getSettings().setUserAgentString(userAgent);
         }
+    }
 
-        if (_options.getHeaders() != null) {
-            Iterator<String> keys = _options.getHeaders().keys();
-            while (keys.hasNext()) {
-                String key = keys.next();
-                if (TextUtils.equals(key.toLowerCase(), "user-agent")) {
-                    _webView.getSettings().setUserAgentString(_options.getHeaders().getString(key));
-                    return;
-                }
-            }
+    private Map<String, String> buildRequestHeadersForNativeProxy(Map<String, String> requestHeaders) {
+        Map<String, String> proxyHeaders = new HashMap<>(requestHeaders);
+        String userAgent = resolveWebViewUserAgent();
+        if (!TextUtils.isEmpty(userAgent)) {
+            proxyHeaders.put("User-Agent", userAgent);
         }
+        return proxyHeaders;
     }
 
     public void setUrl(String url) {
