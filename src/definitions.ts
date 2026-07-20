@@ -659,6 +659,18 @@ export interface OpenWebViewOptions {
    */
   headers?: Headers;
   /**
+   * Custom User-Agent string for the webview.
+   *
+   * When set, replaces the system default webview User-Agent on iOS and Android.
+   * Takes precedence over a `User-Agent` entry in `headers`.
+   *
+   * @since 8.13.0
+   * @example
+   * customUserAgent: "MyApp/1.0 (Capacitor)"
+   * Test URL: https://www.whatismybrowser.com/detect/what-is-my-user-agent/
+   */
+  customUserAgent?: string;
+  /**
    * Credentials to send with the request and all subsequent requests for the same host.
    * @since 6.1.0
    * @example

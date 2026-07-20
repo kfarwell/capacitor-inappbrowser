@@ -2752,18 +2752,8 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
             });
         }
 
-        Map<String, String> requestHeaders = new HashMap<>();
-        if (_options.getHeaders() != null) {
-            Iterator<String> keys = _options.getHeaders().keys();
-            while (keys.hasNext()) {
-                String key = keys.next();
-                if (TextUtils.equals(key.toLowerCase(), "user-agent")) {
-                    _webView.getSettings().setUserAgentString(_options.getHeaders().getString(key));
-                } else {
-                    requestHeaders.put(key, _options.getHeaders().getString(key));
-                }
-            }
-        }
+        Map<String, String> requestHeaders = buildRequestHeadersExcludingUserAgent();
+        applyWebViewUserAgent();
 
         // Load URL with optional HTTP method and body
         String httpMethod = _options.getHttpMethod();
@@ -2773,7 +2763,7 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
             if (loadHtmlDataUrlIfNeeded(this._options.getUrl())) {
                 // Inline HTML loaded from data:text/html;base64 URL.
             } else if (shouldBootstrapInitialLegacyProxyLoad()) {
-                loadInitialLegacyProxyContent(requestHeaders, httpMethod, httpBody);
+                loadInitialLegacyProxyContent(requestHeaders, buildRequestHeadersForNativeProxy(requestHeaders), httpMethod, httpBody);
             } else if (supportsRequestBody(httpMethod) && httpBody != null) {
                 // For POST/PUT/PATCH requests with body
                 // Note: Android WebView has limitations with custom headers on POST
@@ -3908,6 +3898,65 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
         }
     }
 
+    private String resolveWebViewUserAgent() {
+        if (_options == null) {
+            return null;
+        }
+
+        if (!TextUtils.isEmpty(_options.getCustomUserAgent())) {
+            return _options.getCustomUserAgent();
+        }
+
+        if (_options.getHeaders() != null) {
+            Iterator<String> keys = _options.getHeaders().keys();
+            while (keys.hasNext()) {
+                String key = keys.next();
+                if (TextUtils.equals(key.toLowerCase(), "user-agent")) {
+                    return _options.getHeaders().getString(key);
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private Map<String, String> buildRequestHeadersExcludingUserAgent() {
+        Map<String, String> requestHeaders = new HashMap<>();
+        if (_options == null || _options.getHeaders() == null) {
+            return requestHeaders;
+        }
+
+        Iterator<String> keys = _options.getHeaders().keys();
+        while (keys.hasNext()) {
+            String key = keys.next();
+            if (TextUtils.equals(key.toLowerCase(), "user-agent")) {
+                continue;
+            }
+            requestHeaders.put(key, _options.getHeaders().getString(key));
+        }
+        return requestHeaders;
+    }
+
+    private void applyWebViewUserAgent() {
+        if (_webView == null) {
+            return;
+        }
+
+        String userAgent = resolveWebViewUserAgent();
+        if (!TextUtils.isEmpty(userAgent)) {
+            _webView.getSettings().setUserAgentString(userAgent);
+        }
+    }
+
+    private Map<String, String> buildRequestHeadersForNativeProxy(Map<String, String> requestHeaders) {
+        Map<String, String> proxyHeaders = new HashMap<>(requestHeaders);
+        String userAgent = resolveWebViewUserAgent();
+        if (!TextUtils.isEmpty(userAgent)) {
+            proxyHeaders.put("User-Agent", userAgent);
+        }
+        return proxyHeaders;
+    }
+
     public void setUrl(String url) {
         if (_webView == null) {
             Log.w("InAppBrowser", "Cannot set URL - WebView is null");
@@ -3924,18 +3973,8 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
                 return;
             }
 
-            Map<String, String> requestHeaders = new HashMap<>();
-            if (_options.getHeaders() != null) {
-                Iterator<String> keys = _options.getHeaders().keys();
-                while (keys.hasNext()) {
-                    String key = keys.next();
-                    if (TextUtils.equals(key.toLowerCase(), "user-agent")) {
-                        _webView.getSettings().setUserAgentString(_options.getHeaders().getString(key));
-                    } else {
-                        requestHeaders.put(key, _options.getHeaders().getString(key));
-                    }
-                }
-            }
+            Map<String, String> requestHeaders = buildRequestHeadersExcludingUserAgent();
+            applyWebViewUserAgent();
             _webView.loadUrl(url, requestHeaders);
         } catch (Exception e) {
             Log.e("InAppBrowser", "Error setting URL: " + e.getMessage());
@@ -6109,9 +6148,16 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
         _webView.loadUrl(_options.getUrl(), headers);
     }
 
-    private void loadInitialLegacyProxyContent(Map<String, String> requestHeaders, String httpMethod, String httpBody) {
+    private void loadInitialLegacyProxyContent(
+        Map<String, String> directRequestHeaders,
+        Map<String, String> proxyRequestHeaders,
+        String httpMethod,
+        String httpBody
+    ) {
         final String initialUrl = _options.getUrl();
-        final Map<String, String> initialHeaders = requestHeaders != null ? new HashMap<>(requestHeaders) : new HashMap<>();
+        final Map<String, String> initialDirectHeaders =
+            directRequestHeaders != null ? new HashMap<>(directRequestHeaders) : new HashMap<>();
+        final Map<String, String> initialProxyHeaders = proxyRequestHeaders != null ? new HashMap<>(proxyRequestHeaders) : new HashMap<>();
         final String initialMethod = httpMethod != null && !httpMethod.isBlank() ? httpMethod : "GET";
         final String initialBody =
             supportsRequestBody(initialMethod) && httpBody != null
@@ -6122,7 +6168,7 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
             NativeRequestContext requestContext = new NativeRequestContext(
                 initialUrl,
                 initialMethod,
-                initialHeaders,
+                initialProxyHeaders,
                 initialBody,
                 true,
                 "same-origin"
@@ -6140,7 +6186,7 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
                     if (_webView == null) {
                         return;
                     }
-                    _webView.post(() -> loadInitialUrlDirect(initialHeaders, initialMethod, httpBody));
+                    _webView.post(() -> loadInitialUrlDirect(initialDirectHeaders, initialMethod, httpBody));
                     return;
                 }
 
