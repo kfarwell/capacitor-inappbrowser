@@ -1029,6 +1029,7 @@ public class CapgoInAppBrowserPlugin extends Plugin implements WebViewDialog.Per
         final Options options = new Options();
         options.setUrl(url);
         options.setHeaders(call.getObject("headers"));
+        options.setCustomUserAgent(call.getString("customUserAgent"));
         options.setCredentials(call.getObject("credentials"));
         options.setShowReloadButton(Boolean.TRUE.equals(call.getBoolean("showReloadButton", false)));
         options.setVisibleTitle(Boolean.TRUE.equals(call.getBoolean("visibleTitle", true)));

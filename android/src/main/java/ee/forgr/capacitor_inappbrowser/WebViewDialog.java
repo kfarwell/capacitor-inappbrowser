@@ -2752,18 +2752,8 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
             });
         }
 
-        Map<String, String> requestHeaders = new HashMap<>();
-        if (_options.getHeaders() != null) {
-            Iterator<String> keys = _options.getHeaders().keys();
-            while (keys.hasNext()) {
-                String key = keys.next();
-                if (TextUtils.equals(key.toLowerCase(), "user-agent")) {
-                    _webView.getSettings().setUserAgentString(_options.getHeaders().getString(key));
-                } else {
-                    requestHeaders.put(key, _options.getHeaders().getString(key));
-                }
-            }
-        }
+        Map<String, String> requestHeaders = buildRequestHeadersExcludingUserAgent();
+        applyWebViewUserAgent();
 
         // Load URL with optional HTTP method and body
         String httpMethod = _options.getHttpMethod();
@@ -3908,6 +3898,45 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
         }
     }
 
+    private Map<String, String> buildRequestHeadersExcludingUserAgent() {
+        Map<String, String> requestHeaders = new HashMap<>();
+        if (_options == null || _options.getHeaders() == null) {
+            return requestHeaders;
+        }
+
+        Iterator<String> keys = _options.getHeaders().keys();
+        while (keys.hasNext()) {
+            String key = keys.next();
+            if (TextUtils.equals(key.toLowerCase(), "user-agent")) {
+                continue;
+            }
+            requestHeaders.put(key, _options.getHeaders().getString(key));
+        }
+        return requestHeaders;
+    }
+
+    private void applyWebViewUserAgent() {
+        if (_webView == null || _options == null) {
+            return;
+        }
+
+        if (!TextUtils.isEmpty(_options.getCustomUserAgent())) {
+            _webView.getSettings().setUserAgentString(_options.getCustomUserAgent());
+            return;
+        }
+
+        if (_options.getHeaders() != null) {
+            Iterator<String> keys = _options.getHeaders().keys();
+            while (keys.hasNext()) {
+                String key = keys.next();
+                if (TextUtils.equals(key.toLowerCase(), "user-agent")) {
+                    _webView.getSettings().setUserAgentString(_options.getHeaders().getString(key));
+                    return;
+                }
+            }
+        }
+    }
+
     public void setUrl(String url) {
         if (_webView == null) {
             Log.w("InAppBrowser", "Cannot set URL - WebView is null");
@@ -3924,18 +3953,8 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
                 return;
             }
 
-            Map<String, String> requestHeaders = new HashMap<>();
-            if (_options.getHeaders() != null) {
-                Iterator<String> keys = _options.getHeaders().keys();
-                while (keys.hasNext()) {
-                    String key = keys.next();
-                    if (TextUtils.equals(key.toLowerCase(), "user-agent")) {
-                        _webView.getSettings().setUserAgentString(_options.getHeaders().getString(key));
-                    } else {
-                        requestHeaders.put(key, _options.getHeaders().getString(key));
-                    }
-                }
-            }
+            Map<String, String> requestHeaders = buildRequestHeadersExcludingUserAgent();
+            applyWebViewUserAgent();
             _webView.loadUrl(url, requestHeaders);
         } catch (Exception e) {
             Log.e("InAppBrowser", "Error setting URL: " + e.getMessage());

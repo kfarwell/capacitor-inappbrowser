@@ -1358,6 +1358,9 @@ public class CapgoInAppBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
             webViewController.openBlankTargetInWebView = openBlankTargetInWebView
             webViewController.persistWebViewData = persistWebViewData
             webViewController.setHeaders(headers: headers)
+            if let customUserAgent = call.getString("customUserAgent"), !customUserAgent.isEmpty {
+                webViewController.customUserAgent = customUserAgent
+            }
             webViewController.setPreventDeeplink(preventDeeplink: preventDeeplink)
             webViewController.setBlockedHosts(blockedHosts: blockedHosts)
             webViewController.setAuthorizedAppLinks(authorizedAppLinks: authorizedAppLinks)

@@ -152,6 +152,7 @@ public class Options {
     private Pattern closeModalURLPattern;
     private String url;
     private JSObject headers;
+    private String customUserAgent;
     private JSObject credentials;
     private String toolbarType;
     private JSObject shareDisclaimer;
@@ -490,6 +491,14 @@ public class Options {
         this.headers = headers;
     }
 
+    public String getCustomUserAgent() {
+        return customUserAgent;
+    }
+
+    public void setCustomUserAgent(String customUserAgent) {
+        this.customUserAgent = customUserAgent;
+    }
+
     public JSObject getCredentials() {
         return credentials;
     }
@@ -766,6 +775,7 @@ public class Options {
         copy.setTitleIcon(titleIcon);
         copy.setUrl("about:blank");
         copy.setHeaders(headers);
+        copy.setCustomUserAgent(customUserAgent);
         copy.setCredentials(credentials);
         copy.setToolbarType(toolbarType);
         copy.setShareDisclaimer(shareDisclaimer);
