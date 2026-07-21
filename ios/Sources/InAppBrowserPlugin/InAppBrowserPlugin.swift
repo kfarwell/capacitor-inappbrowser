@@ -2556,9 +2556,11 @@ public class CapgoInAppBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
 
         let prefersEphemeral = call.getBool("prefersEphemeralWebBrowserSession") ?? false
 
+        let callbackURLScheme = URL(string: redirectUri)?.scheme ?? url.scheme
+
         // Open the URL in a secure browser window
         DispatchQueue.main.async {
-            let session = ASWebAuthenticationSession(url: url, callbackURLScheme: url.scheme) {
+            let session = ASWebAuthenticationSession(url: url, callbackURLScheme: callbackURLScheme) {
                 callbackURL, error in
 
                 // Clean up the stored call
