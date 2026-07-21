@@ -110,6 +110,31 @@ enum CustomSchemeOpenSupport {
     }
 }
 
+enum SecureWindowRedirectSupport {
+    /// The auth session reports any navigation on the callback scheme, so the redirect is
+    /// identified component-wise. Query items configured in the redirect URI are matched,
+    /// while any extra items (e.g. provider code, state) are ignored.
+    static func matches(_ callbackURL: URL, redirectUri: String) -> Bool {
+        guard let expected = URLComponents(string: redirectUri),
+              let received = URLComponents(url: callbackURL, resolvingAgainstBaseURL: false),
+              received.scheme?.lowercased() == expected.scheme?.lowercased(),
+              received.host?.lowercased() == expected.host?.lowercased(),
+              received.port == expected.port,
+              normalizedPath(received.path) == normalizedPath(expected.path) else {
+            return false
+        }
+
+        let receivedItems = received.queryItems ?? []
+        return (expected.queryItems ?? []).allSatisfy { item in
+            receivedItems.contains { $0.name == item.name && $0.value == item.value }
+        }
+    }
+
+    private static func normalizedPath(_ path: String) -> String {
+        path == "/" ? "" : path
+    }
+}
+
 protocol ProxyRequestLocating {
     func hasPendingProxyRequest(_ requestId: String) -> Bool
 }
@@ -2551,12 +2576,15 @@ public class CapgoInAppBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
             return
         }
 
+        guard let callbackURLScheme = URL(string: redirectUri)?.scheme else {
+            call.reject("Invalid Redirect URI")
+            return
+        }
+
         // Store the call for later resolution
         self.openSecureWindowCall = call
 
         let prefersEphemeral = call.getBool("prefersEphemeralWebBrowserSession") ?? false
-
-        let callbackURLScheme = URL(string: redirectUri)?.scheme ?? url.scheme
 
         // Open the URL in a secure browser window
         DispatchQueue.main.async {
@@ -2577,7 +2605,7 @@ public class CapgoInAppBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
                     return
                 }
 
-                if !callbackURL.absoluteString.hasPrefix(redirectUri) {
+                if !SecureWindowRedirectSupport.matches(callbackURL, redirectUri: redirectUri) {
                     call.reject("Redirect URI does not match, expected " + redirectUri + " but got " + callbackURL.absoluteString)
                     return
                 }
