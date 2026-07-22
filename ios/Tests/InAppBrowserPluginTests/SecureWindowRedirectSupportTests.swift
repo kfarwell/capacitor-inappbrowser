@@ -23,16 +23,25 @@ final class SecureWindowRedirectSupportTests: XCTestCase {
         XCTAssertFalse(try matches("myapp://callback?type=evil&type=login", "myapp://callback?type=login"))
     }
 
-    func testRequiresEveryOccurrenceOfARepeatedQueryItem() throws {
+    func testRequiresEveryOccurrenceOfARepeatedQueryItemInOrder() throws {
         XCTAssertFalse(try matches("myapp://callback?scope=a", "myapp://callback?scope=a&scope=b"))
         XCTAssertTrue(try matches("myapp://callback?scope=a&scope=b&code=x", "myapp://callback?scope=a&scope=b"))
-        XCTAssertTrue(try matches("myapp://callback?scope=b&scope=a", "myapp://callback?scope=a&scope=b"))
+        XCTAssertFalse(try matches("myapp://callback?scope=b&scope=a", "myapp://callback?scope=a&scope=b"))
     }
 
     func testRejectsCallbacksThatOnlyShareThePrefix() throws {
         XCTAssertFalse(try matches("myapp://callback-evil?code=abc", "myapp://callback"))
         XCTAssertFalse(try matches("myapp://callback/evil?code=abc", "myapp://callback"))
         XCTAssertFalse(try matches("https://example.com/callback.evil.test/x", "https://example.com/callback"))
+    }
+
+    func testKeepsEncodedAndLiteralComponentsDistinct() throws {
+        XCTAssertFalse(try matches("https://example.com/a%2Fb", "https://example.com/a/b"))
+        XCTAssertFalse(try matches("https://example.com/a/b", "https://example.com/a%2Fb"))
+        XCTAssertTrue(try matches("https://example.com/a%2Fb?code=x", "https://example.com/a%2Fb"))
+        XCTAssertFalse(try matches("myapp://c%61llback", "myapp://callback"))
+        XCTAssertFalse(try matches("myapp://callback?type=b%2Bc", "myapp://callback?type=b+c"))
+        XCTAssertTrue(try matches("myapp://callback?type=b+c&code=x", "myapp://callback?type=b+c"))
     }
 
     func testRejectsInjectedUserInfo() throws {

@@ -119,26 +119,23 @@ enum SecureWindowRedirectSupport {
         guard let expected = URLComponents(string: redirectUri),
               let received = URLComponents(url: callbackURL, resolvingAgainstBaseURL: false),
               received.scheme?.lowercased() == expected.scheme?.lowercased(),
-              received.user == expected.user,
-              received.password == expected.password,
-              received.host?.lowercased() == expected.host?.lowercased(),
+              received.percentEncodedUser == expected.percentEncodedUser,
+              received.percentEncodedPassword == expected.percentEncodedPassword,
+              received.percentEncodedHost?.lowercased() == expected.percentEncodedHost?.lowercased(),
               received.port == expected.port,
-              normalizedPath(received.path) == normalizedPath(expected.path) else {
+              normalizedPath(received.percentEncodedPath) == normalizedPath(expected.percentEncodedPath) else {
             return false
         }
 
-        let expectedItems = expected.queryItems ?? []
-        let configuredNames = Set(expectedItems.map(\.name))
-        let receivedItems = (received.queryItems ?? []).filter { configuredNames.contains($0.name) }
-        return occurrences(of: expectedItems) == occurrences(of: receivedItems)
+        let expectedItems = expected.percentEncodedQueryItems ?? []
+        let receivedItems = received.percentEncodedQueryItems ?? []
+        return Set(expectedItems.map(\.name)).allSatisfy { name in
+            receivedItems.filter { $0.name == name } == expectedItems.filter { $0.name == name }
+        }
     }
 
     private static func normalizedPath(_ path: String) -> String {
         path == "/" ? "" : path
-    }
-
-    private static func occurrences(of items: [URLQueryItem]) -> [URLQueryItem: Int] {
-        items.reduce(into: [:]) { counts, item in counts[item, default: 0] += 1 }
     }
 }
 
