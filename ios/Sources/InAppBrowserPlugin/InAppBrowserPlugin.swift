@@ -113,25 +113,32 @@ enum CustomSchemeOpenSupport {
 enum SecureWindowRedirectSupport {
     /// The auth session reports any navigation on the callback scheme, so the redirect is
     /// identified component-wise. Query items configured in the redirect URI are matched,
-    /// while any extra items (e.g. provider code, state) are ignored.
+    /// while any extra items (e.g. provider code, state) are ignored, unless they reuse a
+    /// configured name: parsers disagree over which duplicate takes precedence.
     static func matches(_ callbackURL: URL, redirectUri: String) -> Bool {
         guard let expected = URLComponents(string: redirectUri),
               let received = URLComponents(url: callbackURL, resolvingAgainstBaseURL: false),
               received.scheme?.lowercased() == expected.scheme?.lowercased(),
+              received.user == expected.user,
+              received.password == expected.password,
               received.host?.lowercased() == expected.host?.lowercased(),
               received.port == expected.port,
               normalizedPath(received.path) == normalizedPath(expected.path) else {
             return false
         }
 
-        let receivedItems = received.queryItems ?? []
-        return (expected.queryItems ?? []).allSatisfy { item in
-            receivedItems.contains { $0.name == item.name && $0.value == item.value }
-        }
+        let expectedItems = expected.queryItems ?? []
+        let configuredNames = Set(expectedItems.map(\.name))
+        let receivedItems = (received.queryItems ?? []).filter { configuredNames.contains($0.name) }
+        return occurrences(of: expectedItems) == occurrences(of: receivedItems)
     }
 
     private static func normalizedPath(_ path: String) -> String {
         path == "/" ? "" : path
+    }
+
+    private static func occurrences(of items: [URLQueryItem]) -> [URLQueryItem: Int] {
+        items.reduce(into: [:]) { counts, item in counts[item, default: 0] += 1 }
     }
 }
 
