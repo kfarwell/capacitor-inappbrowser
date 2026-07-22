@@ -21,6 +21,7 @@ final class SecureWindowRedirectSupportTests: XCTestCase {
     func testRejectsConflictingDuplicatesOfConfiguredQueryItems() throws {
         XCTAssertFalse(try matches("myapp://callback?type=login&type=evil", "myapp://callback?type=login"))
         XCTAssertFalse(try matches("myapp://callback?type=evil&type=login", "myapp://callback?type=login"))
+        XCTAssertFalse(try matches("myapp://callback?type=login&t%79pe=evil", "myapp://callback?type=login"))
     }
 
     func testRequiresEveryOccurrenceOfARepeatedQueryItemInOrder() throws {

@@ -129,6 +129,13 @@ enum SecureWindowRedirectSupport {
 
         let expectedItems = expected.percentEncodedQueryItems ?? []
         let receivedItems = received.percentEncodedQueryItems ?? []
+        let configuredDecodedNames = Set((expected.queryItems ?? []).map(\.name))
+        let configuredReceivedItemCount = (received.queryItems ?? []).filter {
+            configuredDecodedNames.contains($0.name)
+        }.count
+        guard configuredReceivedItemCount == expectedItems.count else {
+            return false
+        }
         return Set(expectedItems.map(\.name)).allSatisfy { name in
             receivedItems.filter { $0.name == name } == expectedItems.filter { $0.name == name }
         }
